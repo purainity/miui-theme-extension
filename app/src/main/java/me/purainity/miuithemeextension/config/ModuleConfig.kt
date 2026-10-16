@@ -14,13 +14,14 @@ enum class Setting(val key: String, val defaultValue: Boolean = false) {
 data class ModuleConfig(val version: Long = 0, val values: Map<Setting, Boolean> = emptyMap()) {
     operator fun get(setting: Setting): Boolean = values[setting] ?: setting.defaultValue
     fun enabled(setting: Setting): Boolean = this[Setting.MASTER] && when (setting) {
-        Setting.PAID_BADGES -> this[setting] && (this[Setting.RESOURCES] || this[Setting.LARGE_ICONS])
+        // 价格控件实测仅被主题/字体卡片使用，隐藏主题付费标识只从属于主题资源解锁
+        Setting.PAID_BADGES -> this[setting] && this[Setting.RESOURCES]
         Setting.WIDGET_BADGES -> this[setting] && this[Setting.WIDGETS]
         else -> this[setting]
     }
     fun interactive(setting: Setting): Boolean = setting == Setting.MASTER ||
         this[Setting.MASTER] && when (setting) {
-            Setting.PAID_BADGES -> this[Setting.RESOURCES] || this[Setting.LARGE_ICONS]
+            Setting.PAID_BADGES -> this[Setting.RESOURCES]
             Setting.WIDGET_BADGES -> this[Setting.WIDGETS]
             else -> true
         }
@@ -29,14 +30,25 @@ data class ModuleConfig(val version: Long = 0, val values: Map<Setting, Boolean>
 enum class ResourceKind { STANDARD, LARGE_ICON, MAML, UNSUPPORTED }
 
 object ResourcePolicy {
+    // 大图标子串：必须先于普通资源词判定，防止 "largeicons" 被 "icon" 吞掉
+    private val largeIconTokens = setOf("largeicon", "large_icon")
+    // MAML 子串：必须先于普通资源词判定，防止 spwallpaper→wallpaper、spaod→aod 误吞
+    private val mamlTokens = setOf("maml", "widget", "spwallpaper", "splockscreen", "spaod", "superwallpaper")
+    // 普通资源子串：覆盖全部具备收费能力的类别（含当前免费但保留付费能力的壁纸、息屏、铃声等，
+    // 见规划文档第 7 节类别域）；复合词（videowallpaper/miwallpaper/mmsringtone 等）由子串自动覆盖
+    private val standardTokens = setOf(
+        "theme", "font", "wallpaper", "lockscreen", "lockstyle", "icons", "icon",
+        "hybrid", "aod", "ringtone", "notification", "alarm", "bootaudio", "audioeffect",
+    )
+
     fun kind(category: String): ResourceKind {
-        val parts = category.lowercase(java.util.Locale.ROOT).split('/', '-', '_', '.', ':')
-        if (category.lowercase(java.util.Locale.ROOT) in setOf("largeicons", "large_icons", "largeicon"))
-            return ResourceKind.LARGE_ICON
-        if (parts.any { it in setOf("maml", "widget", "widgets", "spwallpaper", "splockscreen", "spaod", "superwallpaper") })
-            return ResourceKind.MAML
-        return if (parts.any { it in setOf("theme", "themes", "font", "fonts", "wallpaper", "wallpapers", "lockscreen", "icons", "icon") })
-            ResourceKind.STANDARD else ResourceKind.UNSUPPORTED
+        val value = category.lowercase(java.util.Locale.ROOT)
+        return when {
+            largeIconTokens.any { value.contains(it) } -> ResourceKind.LARGE_ICON
+            mamlTokens.any { value.contains(it) } -> ResourceKind.MAML
+            standardTokens.any { value.contains(it) } -> ResourceKind.STANDARD
+            else -> ResourceKind.UNSUPPORTED
+        }
     }
     fun allows(config: ModuleConfig, productId: String?, kind: ResourceKind): Boolean {
         // 探测对象永远不会有 productId；即使在应用任务执行期间也保持原值放行

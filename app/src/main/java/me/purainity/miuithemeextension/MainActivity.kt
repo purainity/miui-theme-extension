@@ -137,9 +137,8 @@ class MainActivity : AppCompatActivity() {
                 row.control.isChecked = SettingsRowPresenter.checked(row.setting, config, hidden)
                 row.control.isEnabled = config.interactive(row.setting)
                 row.container.isClickable = row.control.isEnabled
-                val hint = SettingsRowPresenter.dependencyHint(row.setting, config)?.let { getString(it) }
-                // 禁用时说明仍保持可见；依赖提示解释子开关为何不可用
-                row.summary.text = SettingsRowPresenter.summary(getString(row.effect), hint)
+                // 禁用时说明仍保持可见；被依赖的子开关禁用不追加提示文案
+                row.summary.text = getString(row.effect)
             }
         } finally { bindingValues = false }
     }

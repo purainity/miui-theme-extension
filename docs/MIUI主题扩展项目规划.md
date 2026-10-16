@@ -52,9 +52,9 @@
 | 键 | 默认值 | 界面名称 | 开启后的效果 |
 |---|---|---|---|
 | `master_enabled` | false | 总开关 | 所有功能生效的前提；关闭后一切 Hook 放行原逻辑 |
-| `unlock_paid_resources` | false | 解锁付费主题与字体 | 付费主题/字体/壁纸的购买态、授权态、价格视为免费可用（含 DRM 授权层）；主题与字体共用同一底层购买对象，不拆分 |
-| `hide_paid_badges` | true | 隐藏主题付费标识 | 主题详情页价格/折扣控件归零显示（仅 UI 层） |
-| `unlock_large_icons` | false | 解锁付费大图标 | 付费大图标主题可下载应用 |
+| `unlock_paid_resources` | false | 解锁付费主题资源 | 普通资源类（主题、字体、锁屏样式、息屏、铃声等，类别全集见第 7 节）的购买态、授权态、价格视为免费可用（含 DRM 授权层）；主题与字体共用同一底层购买对象，不拆分 |
+| `hide_paid_badges` | true | 隐藏主题付费标识 | 主题与字体卡片的价格/折扣控件归零显示（仅 UI 层；实测该控件仅被主题、字体卡片使用，故仅从属于本解锁开关） |
+| `unlock_large_icons` | false | 解锁付费大图标 | 付费大图标可下载应用，商店 feed 卡片价格显示为免费；另含应用任务授权文件（8.5） |
 | `unlock_paid_widgets` | false | 解锁付费小组件 | 智能助理/桌面/商店中付费 MAML 小组件可下载、可添加；超级壁纸按 MAML 资源链路适配 |
 | `hide_widget_pay_badges` | true | 隐藏小组件付费标识 | 智能助理组件卡片不再显示付费角标（仅 UI 层） |
 | `hide_theme_ads` | false | 隐藏主题商店广告 | 广告判定无效、视频广告失效、广告卡片不占位 |
@@ -62,21 +62,22 @@
 
 ### 3.2 联动规则
 
-`hide_paid_badges` 从属于 `unlock_paid_resources` 或 `unlock_large_icons`（任一开启即可交互）；`hide_widget_pay_badges` 从属于 `unlock_paid_widgets`。具体行为：
+`hide_paid_badges` 从属于 `unlock_paid_resources`；`hide_widget_pay_badges` 从属于 `unlock_paid_widgets`。具体行为：
 
 - 依赖不满足时，子开关原生禁用、整行不可点击，标题与说明文字保持原色不变；
 - 关闭解锁开关只禁用子开关，存储值保留；重新开启解锁开关时不自动改写子开关；
-- 总开关关闭时，其余全部开关禁用。
+- 总开关关闭时，其余全部开关禁用；
+- 大图标**不设**角标开关：角标开关对应纯展示层 Hook（主题/字体的 `DiscountPriceView` 入参、小组件的 `isShowPayLogo` 标志），而大图标卡片价格直读 `UIProduct`/`LargeIconElement` 模型字段——该字段同时被购买判定读取，feed 显示归零（6.1 #18–#19）与 #1–#5 同属数据层逻辑，由 `unlock_large_icons` 统一承担，不可按字段组拆分回滚。
 
 ### 3.3 生效判定
 
 回调内的判定公式（`m` = master，`r` = resources，`l` = large_icons，`w` = widgets）：
 
-- 角标类：`hide_paid_badges` 生效 = `m && (r || l) && hide_paid_badges`；`hide_widget_pay_badges` 生效 = `m && w && hide_widget_pay_badges`；
+- 角标类：`hide_paid_badges` 生效 = `m && r && hide_paid_badges`；`hide_widget_pay_badges` 生效 = `m && w && hide_widget_pay_badges`；
 - 广告类、小组件类：`m && 对应开关`；
-- 数据层与 DRM 层按**资源类别**分开关（见 7.1）：普通资源 → `r`，大图标 → `l`，MAML → `w`；
-- 无论开关状态如何，无有效 `productId` 的探测对象一律放行原逻辑（见 7.2）；
-- 开关关闭即放行，常驻 Hook 不需要动态卸载；瞬时 Hook 的清理在任何路径下都会执行（见 7.3）。
+- 数据层与 DRM 层按**资源类别**分开关（见 8.1，类别全集与收费现状见第 7 节）：普通资源 → `r`，大图标 → `l`，MAML → `w`；
+- 无论开关状态如何，无有效 `productId` 的探测对象一律放行原逻辑（见 8.2）；
+- 开关关闭即放行，常驻 Hook 不需要动态卸载；瞬时 Hook 的清理在任何路径下都会执行（见 8.3）。
 
 ### 3.4 开关与 Hook 的对应关系
 
@@ -84,7 +85,7 @@
 |---|---|
 | `master_enabled` | 全部 Hook 点的总门控 |
 | `unlock_paid_resources` | 6.1 #1–#5 中类别为普通资源的调用；6.1 #14 中参数为普通资源；6.2 #3–#4 窗口类别为普通资源 |
-| `unlock_large_icons` | 6.1 #15 的授权文件部分；6.1 #1–#5、#14 中类别为大图标；6.2 #3–#4 窗口类别为大图标 |
+| `unlock_large_icons` | 6.1 #15、#18–#19；6.1 #1–#5、#14 中类别为大图标；6.2 #3–#4 窗口类别为大图标 |
 | `unlock_paid_widgets` | 6.1 #13、#17；6.1 #1–#5、#14 中类别为 MAML；6.2 #3–#4 窗口类别为 MAML；6.3 全部 #1–#11；6.4 全部 |
 | `hide_paid_badges` | 6.1 #6 |
 | `hide_widget_pay_badges` | 6.3 #12 |
@@ -97,19 +98,20 @@
 
 单 Activity 布局，自上而下依次为：
 
-1. **激活状态卡片**。显示当前激活状态：激活时提示"模块已激活 / 在下方按需开启各功能"；未激活时提示"模块未激活 / 先在 LSPosed 中启用模块并勾选作用域，再重启手机"。判定方式见 7.7。
+1. **激活状态卡片**。显示当前激活状态：激活时提示"模块已激活 / 首次激活后请重启手机，此后以下开关修改后即时生效"；未激活时提示"模块未激活 / 请先在 LSPosed 中启用模块并勾选作用域，再重启手机"。判定方式见 8.7。
 2. **版本信息卡片**。每项两行：标签在上、内容在下，内容可长按选中复制。显示项：模块版本（versionName + versionCode）、设备型号（`ro.product.marketname` 与 device，取不到回退 `Build.MODEL`）、系统版本（Android 版本 + API）、MIUI 版本（`Build.VERSION.INCREMENTAL`）、三个宿主版本（未安装显示"未安装"，读取失败显示"无法读取"）。包可见性查询仅用于版本展示。
 3. **总开关卡片**。独立卡片，位于设置区最上方；关闭时下方所有开关禁用。
-4. **功能分组卡片**。四组：
-   - 主题与字体：解锁付费主题与字体、隐藏主题付费标识、解锁付费大图标；
-   - 小组件：解锁付费小组件、隐藏小组件付费标识;
-   - 主题商店：隐藏主题商店广告；
+4. **功能分组卡片**。五组：
+   - 主题资源：解锁付费主题资源、隐藏主题付费标识；
+   - 大图标：解锁付费大图标；
+   - 小组件：解锁付费小组件、隐藏小组件付费标识；
+   - 广告：隐藏主题商店广告；
    - 其他设置：隐藏模块桌面图标。
-   每行为"标题 + 一句效果说明 + 开关"，整行可点击。
-5. **禁用态说明**。被依赖的子开关禁用时，说明追加依赖提示（"开启主题或大图标解锁后可用"/"开启小组件解锁后可用"）。
+   每行为"标题 + 一句效果说明 + 开关"，整行可点击；角标开关跟随对应解锁开关分组，大图标无角标开关——feed 卡片价格由数据层 Hook 直接归零（6.1 #18–#19），无需 UI 层角标。
+5. **禁用态说明**。被依赖的子开关禁用时原生禁用、整行不可点击，不追加额外说明文案。
 6. **图标隐藏**。通过指向主 Activity 的 `activity-alias` 启停实现（`DONT_KILL_APP`）：设置失败回滚存储值并提示；每次回到界面时以组件实际状态回写存储（外部修改自愈）；隐藏后仍可从 LSPosed 进入设置；说明文字提醒在 LSPosed 中关闭"强制显示桌面图标"。
 
-其他约定：文案统一使用"MIUI 主题壁纸 / MIUI 智能助理 / MIUI 桌面 / MIUI 版本"称谓；字符串末尾不加句号；界面为 Material Design 3 风格——顶部为大标题折叠应用栏（展开 152dp、滚动收起为 64dp 工具栏，未滚动为 surface 色、滚动后为 surfaceContainer 色），设置行按 MD3 双行列表规范排布，边到边布局下顶栏背景延伸到状态栏后面。
+其他约定：文案统一使用"主题壁纸 / 智能助理 / 系统桌面 / MIUI 版本"称谓；字符串末尾不加句号；界面为 Material Design 3 风格——顶部为大标题折叠应用栏（展开 152dp、滚动收起为 64dp 工具栏，未滚动为 surface 色、滚动后为 surfaceContainer 色），设置行按 MD3 双行列表规范排布，边到边布局下顶栏背景延伸到状态栏后面。
 
 ---
 
@@ -119,14 +121,14 @@
 
 入口按 `packageName` 分发：
 
-- 模块自身进程：挂激活自检（7.7）；
+- 模块自身进程：挂激活自检（8.7）；
 - `android`：安装框架层 Hook（6.2）；
-- 其余三个宿主：先 hook `Application.attach(Context)` 的 after 拿到宿主 Context 并连接配置客户端（7.6），再安装各自的业务 Hook；主题壁纸进程同时接收 APK 路径（含 split）供 DEX 扫描（7.4）。
+- 其余三个宿主：先 hook `Application.attach(Context)` 的 after 拿到宿主 Context 并连接配置客户端（8.6），再安装各自的业务 Hook；主题壁纸进程同时接收 APK 路径（含 split）供 DEX 扫描（8.4）。
 
 ### 5.2 公共约定
 
 - **容错**：目标类容错查找，不存在只记日志跳过；每个 Hook 点独立异常隔离，回调内部再隔离一次——单点失败既不影响原方法执行，也不影响其他 Hook 点（致命虚拟机错误除外）；
-- **匹配**：按名匹配时必须同时核验参数与返回类型；混淆目标一律经特征扫描定位（7.4），不出现任何硬编码混淆名；
+- **匹配**：按名匹配时必须同时核验参数与返回类型；混淆目标一律经特征扫描定位（8.4），不出现任何硬编码混淆名；
 - **纪律**：回调先门控后动作；after 回调在原方法抛出异常时不执行，不掩盖宿主异常；
 - **版本策略**：按类、签名、特征三级判定，不按宿主版本号套用整组 Hook。
 
@@ -148,11 +150,13 @@
 | 8 | `basemodule.ad.model.AdInfo` → `isVideoAd()` | 按名，`()Z` | before | `setResult(false)` | hide_theme_ads |
 | 9–11 | `PureAdBannerViewHolder`、`SelfFontItemAdViewHolder`、`SelfRingtoneItemAdViewHolder` 构造器 `(View, RecommendListViewAdapter[, int])` | 首参 View、次参 RecommendListViewAdapter、可选第三参 int（兼容新版增参） | after | `args[0]` 非空时：已有 LayoutParams 则宽高置 0，没有则按父容器类型（FrameLayout/LinearLayout/RelativeLayout）新建 `(0,0)`；再 `setVisibility(GONE)` | hide_theme_ads |
 | 12 | `BaseAdViewHolder` 构造器 `(View, RecommendListViewAdapter)` | 仅当 #9–#11 三类都没挂上时才兜底挂载；回调内再校验 `thisObject` 的类名属于 #9–#11 且未被覆盖 | after | 同 #9–#11 | hide_theme_ads |
-| 13 | `com.miui.maml.widget.edit.MamlutilKt` → `themeManagerSupportPaidWidget(Context)` | 按名，`(Context)Z`，存在才挂 | before | `setResult(false)`——让宿主认为不支持付费组件机制，整条付费拦截链短路 | unlock_paid_widgets |
-| 14 | DRM 业务方法（特征扫描，7.4）：`controller.online` 包下返回 `DrmResult`、参数为单个 Resource 的实例方法 | 特征定位 | after | 原方法无异常、返回非 null 且首个参数按类别放行时，`setResult(真实 DRM_SUCCESS)`（7.3） | 按类别 |
-| 15 | 大图标应用任务（特征扫描，7.4）：参数 `[Void[]]`、任务类持有 Resource 实例字段 | 特征定位 + 字段确认 | before + after | before：把任务持有的 Resource 压入线程任务栈并绑定到本次调用；productId 校验通过且开关开启时准备授权占位文件（7.5）。after：无条件出栈（含异常路径） | 栈部分服务类别判定；授权文件部分 = unlock_large_icons |
+| 13 | `com.miui.maml.widget.edit.MamlutilKt` → `themeManagerSupportPaidWidget(Context)` | 按名，`(Context)Z`，存在才挂 | before | `setResult(false)`——让 MAML SDK 判定主题壁纸不支持付费组件，其授权工具（`MamlDrmUtilKt.isLegal`、`downloadAndCopyRight`、`queryMamlRights` 等）直接返回 `DRM_ERROR_UNKNOWN`/`-3`/`null`，调用方按无付费机制处理。该点源自 yuk 1.7 的三进程对称挂载；本地两基线（4.0.1.4 / 4.2.6.7）中主题壁纸进程内该 SDK 链无外部调用方，作为跨版本保险保留（存在才挂，零成本） | unlock_paid_widgets |
+| 14 | DRM 业务方法（特征扫描，8.4）：`controller.online` 包下返回 `DrmResult`、参数为单个 Resource 的实例方法 | 特征定位 | after | 原方法无异常、返回非 null 且首个参数按类别放行时，`setResult(真实 DRM_SUCCESS)`（8.3） | 按类别 |
+| 15 | 大图标应用任务（特征扫描，8.4）：参数 `[Void[]]`、任务类持有 Resource 实例字段 | 特征定位 + 字段确认 | before + after | before：把任务持有的 Resource 压入线程任务栈并绑定到本次调用；productId 校验通过且开关开启时准备授权占位文件（8.5）。after：无条件出栈（含异常路径） | 栈部分服务类别判定；授权文件部分 = unlock_large_icons |
 | 16 | `Resource` → `clone()` | 按名，`()Resource`（排除返回 Object 的 bridge 方法） | after | 把原对象的类别标签传播给克隆对象——DRM 校验内部会克隆资源，不传播会丢类别 | 标签机制 |
 | 17 | `superwallpaper.activity.MamlSuperWallpaperDetailActivity`（以 `Activity.onCreate` 为入口，回调内校验实例类型） | 类存在才挂 | before | 修正 intent 中 `extra_bundle` 的 classLoader，反序列化 `extra_superwallpaper_info`，为该 Resource 登记 MAML 标签——超级壁纸由此归入小组件开关 | 标签机制 |
+| 18 | `com.android.thememanager.model.LargeIconElement` → `create(UIProduct, int)` 静态工厂 | 按名 + 重载签名（static、首参 `router.recommend.entity.UIProduct`、次参 int、返回 LargeIconElement） | after | 大图标解锁开启、返回非 null 且元素 `productId` 非空时：写 `currentPriceInCent=0`、`originPriceInCent=0`、`hasBought=true`，原值入 journal（8.6.1）——选择器与购买入口的元素由此构造 | unlock_large_icons |
+| 19 | `LargeIconHomeCardViewHolder`、`LargeIconTwoItemCardViewHolder`、`LargeIconItemViewHolder`（各含内部类）→ 绑定方法 | 类名 + 参数结构匹配：实例、非桥接、void 返回；参数恰一个 `UIProduct`，或恰一个声明 `UIProduct` 实例字段的对象参数，其余参数限 int/Integer（方法名已混淆，不按名匹配） | before | 大图标解锁开启且商品 `productUuid` 非空时：改写该 `UIProduct` 的 `currentPriceInCent=0`、`originPriceInCent=0`、`isPurchased=true`，原值入 journal（8.6.1）——feed 卡片价格直读该字段，归零后宿主格式化函数渲染"免费" | unlock_large_icons |
 
 ### 6.2 `android`（system_server，DRM 框架层）
 
@@ -160,7 +164,7 @@
 |---|---|---|---|---|---|
 | 1 | `com.android.server.SystemServer` → `startBootstrapServices` | 按名 | before | 读取 `mSystemContext` 字段连接配置客户端（system_server 没有 Application.attach） | 基础设施 |
 | 2 | `android.app.ActivityThread` → `systemMain()` | 按名，无参 | after | 经 `getSystemContext()` 连接配置客户端（备用路径） | 基础设施 |
-| 3 | `miui.drm.ThemeReceiver` → `validateTheme` | 精确签名双版本匹配：四参 `(Context,String,String,Map)→void` 或三参 `(Context,String,String)→boolean`；同名的 synthetic 桥接方法因方法名不同不会被误挂 | before + after | before：连接配置客户端；按 `args[1]`（主题目录路径）判定类别（7.1 路径版），进入瞬时 DRM 窗口。after：无条件退出窗口 | 按类别 |
+| 3 | `miui.drm.ThemeReceiver` → `validateTheme` | 精确签名双版本匹配：四参 `(Context,String,String,Map)→void` 或三参 `(Context,String,String)→boolean`；同名的 synthetic 桥接方法因方法名不同不会被误挂 | before + after | before：连接配置客户端；按 `args[1]`（主题目录路径）判定类别（8.1 路径版），进入瞬时 DRM 窗口。after：无条件退出窗口 | 按类别 |
 | 4 | `miui.drm.DrmManager` → `isLegal`（全部返回 DrmResult 的重载）、`isPermanentRights`、`isRightsFileLegal`（返回 boolean 的重载） | 按名 + 返回类型；仅在窗口存续期间动态挂载 | before（窗口内） | 当前线程存在已租借窗口且窗口类别对应开关开启时：`isLegal` → `setResult(真实 DRM_SUCCESS)`，后两者 → `setResult(true)`；否则放行真实校验 | 按类别 |
 | 5 | `miui.drm.DrmManager` → `isSupportAd` | 按名，单参（Context 或 File） | before | `setResult(false)` | hide_theme_ads |
 | 6 | `miui.drm.DrmManager` → `setSupportAd(Context, boolean)` | 精确签名 | before | `setResult(null)`，跳过原方法 | hide_theme_ads |
@@ -195,15 +199,73 @@
 
 ---
 
-## 7. 核心机制
+## 7. 主题壁纸资源类别与收费现状
 
-### 7.1 资源分类（ResourcePolicy）
+本节记录主题壁纸（`com.android.thememanager`）的资源类别体系、收费现状与 Hook 对应关系，作为开关划分（3.1）与资源分类（8.1）的依据。
 
-主题壁纸中的每个资源对象归入四类之一：普通资源、大图标、MAML、未知。判定顺序：
+### 7.1 收费判定的三层结构
+
+购买能力的判定入口是 `util.se.t(resourceCode) = !ki() && !ni7()`，由此形成三层收费版图：
+
+| 层 | 类别 | 说明 |
+|---|---|---|
+| 硬编码免费 | 音频族 `bootaudio / ringtone / notification / alarm / audioeffect`（`ki()` 名单）；`wallpaper / lockscreen`（`ni7()`，equals 精确匹配） | 代码层永不可购买 |
+| 可收费、当前运营免费 | `theme`（广告变现）、`hybrid`、`icons`、`lockstyle`、`aod`、`videowallpaper` 族、`miwallpaper` 族 | purchaseSupported=true、付费框架（米币/微信支付、试用体系）完整保留，当前价格全 0 |
+| 实际收费 | `fonts`（免费/付费混排）、`largeicons`、`widget / widget_suit` 及 `spwallpaper / splockscreen / spaod` 超级壁纸（MAML 链路） | 与商店 TAB 现状一致 |
+
+补充事实：
+
+- 商店主类型域（`Config.main_tab_sort` 默认值）：`hybrid,widget_suit,theme,wallpaper,largeicons,videowallpaper,ringtone,fonts,aod,icons,miwallpaper`，其中 `hybrid`、`miwallpaper` 为服务端关闭的隐藏 TAB；
+- 铃声 TAB 为第三方酷音 H5 页面（kuyin123.com），本地仅 WebView 容器与试听控制，无购买管线；
+- 免费主题依赖广告变现，配套框架 `DrmManager.setSupportAd`（对应 6.2 #5/#6 的去广告 Hook）；
+- 任何类别都可能携带 `productId`/价格/购买态字段，收费与否最终由服务端按资源决定。
+
+### 7.2 资源类别 × 收费状态 × 开关 × Hook 对应表
+
+| 类别（实测变体） | 收费现状 | 归类 / 开关 | 对应 Hook |
+|---|---|---|---|
+| `theme` | 免费（广告变现） | 普通资源 → `unlock_paid_resources` | 6.1 #1–#5、#14、#6；6.2 #3–#4 |
+| `hybrid` | 可收费，当前免费 | 普通资源 → `unlock_paid_resources` | 同上 |
+| `fonts` / `Font` | 实际收费 | 普通资源 → `unlock_paid_resources` | 同上 |
+| `wallpaper`（+inner/outer/fold） | 硬编码免费 | 普通资源 → `unlock_paid_resources` | 同上（免费态下经探测保护为无操作） |
+| `lockscreen`（+fold/inner/outer） | 硬编码免费 | 普通资源 → `unlock_paid_resources` | 同上 |
+| `lockstyle`（+pad/inner/outer） | 可收费，多作主题子资源 | 普通资源 → `unlock_paid_resources` | 独立对象同上；子资源经 #14 按父资源分类 |
+| `icons` | 可收费，当前免费 | 普通资源 → `unlock_paid_resources` | 同 `theme` |
+| `videowallpaper`（+launcher/lockscreen/fold）、`dynamicvideowallpaper` | 可收费，当前免费 | 普通资源 → `unlock_paid_resources` | 同 `theme` |
+| `miwallpaper`（+inner/outer/pad） | 可收费（有试用体系），当前免费 | 普通资源 → `unlock_paid_resources` | 同 `theme`；超级壁纸的 MAML 流经 #17 打标优先归小组件 |
+| `aod` | 可收费，当前免费 | 普通资源 → `unlock_paid_resources` | 同 `theme` |
+| 铃声族：`ringtone / ringtones / notification / alarm / alarmscreen / bootaudio / audioeffect / mmsringtone / calendarringtone` | 硬编码免费；铃声 TAB 为酷音 H5 | 普通资源 → `unlock_paid_resources` | 同 `theme`；当前版本无操作 |
+| `largeicons` | 实际收费（批量购买体系、专用购买端点） | 大图标 → `unlock_large_icons` | 6.1 #15、#18–#19（feed 数据层）、#1–#5（按类别）、#14；6.2 #3–#4（`large_icons` 路径） |
+| `widget` / `widget_suit` | 实际收费（`WidgetPurchaseActivity`） | MAML → `unlock_paid_widgets` | 6.1 #13；6.3 #1–#11；6.4 |
+| `spwallpaper / splockscreen / spaod / SuperWallpaper` | 实际收费（MAML DRM：`<productId>.zip` + `<productId>.right` 成对校验） | MAML → `unlock_paid_widgets` | 6.1 #17、#13；6.3；6.4 |
+
+### 7.3 非独立商品（不占开关）
+
+| 类别 | 性质 | DRM 覆盖方式 |
+|---|---|---|
+| 主题内子模块：`framework-res / launcher / statusbar / BootAnimation / boots / animation / contact / Mms / incallshow / thirdapp` 等 | `RelatedResource` 子资源，无独立 productId | #14 按父资源分类 + 逐子资源 `.mra` 校验；6.2 #3 路径判定兜底 |
+| 桌面 gadget 元素：`Clock_1x2/2x2/2x4/3x4`、`photo_frame_*`、`icons_2x3/4x3`、`HOVER`、`POP` | 组件选择器描述符，非商品 | 无 productId，探测保护（8.2）自动放行 |
+
+补充：推荐流（首页 TAB 与列表）的商品卡片价格直读 `UIProduct.currentPriceInCent`，不经 Resource 管线——Resource 层 Hook 天然覆盖不到。字体/主题卡片经 `DiscountPriceView` 显示（6.1 #6 覆盖），大图标卡片自绘价格文本，故另设 #18–#19 数据层改写；价格 ≤0 时宿主格式化函数自带"免费"分支。
+
+### 7.4 DRM 校验链速览
+
+- 应用层 DrmService（源文件名，混淆类名随版本变化，即 6.1 #14 特征扫描的目标）：`clone` 资源 → 内容路径为空或 `/system` 前缀直接放行 → 逐子资源查 `.mra` 授权文件 → 授权文件 SHA-1 等于空文件哈希（`da39a3ee…`）时跳过该项校验（8.5 空占位文件方案的依据）→ 其余调框架 `miui.drm.DrmManager.isLegal`；
+- MAML 小组件独立链路：`MamlDrmUtilKt.isLegal` 先经 `themeManagerSupportPaidWidget` 门禁（读主题壁纸 manifest 的 `supportPaidWidget` 元数据），再校验 `<productId>.zip` 与 `<productId>.right` 成对文件；
+- 大图标应用任务（源文件名 `ApplyLargeIconTask`，即 6.1 #15 目标）：执行前构造无 productId 的探测 Resource（期望价格非零、购买态 false、DRM 非成功），即 8.2 探测保护的来源；
+- 框架层 DRM（`ThemeReceiver.validateTheme`、`DrmManager`）位于系统框架，不在主题壁纸 APK 内，由 6.2 处理。
+
+---
+
+## 8. 核心机制
+
+### 8.1 资源分类（ResourcePolicy）
+
+主题壁纸中的每个资源对象归入四类之一：普通资源、大图标、MAML、未知（类别全集与收费现状见第 7 节）。判定顺序：
 
 1. **身份标签缓存**：`toResource`（6.1 #5）与超级壁纸入口（6.1 #17）登记过的对象直接命中（对象与其 `onlineProperties` 均可作为键命中）；
 2. **任务栈**：当前线程正在执行的大图标任务所持有的 Resource 判为大图标；
-3. **`category` 字段**，其次 **`productType` 字段**：按 `/ - _ . :` 分词后匹配关键词——`largeicons` 族 → 大图标；`maml / widget / spwallpaper / splockscreen / spaod / superwallpaper` → MAML；`theme / font / wallpaper / lockscreen / icons` 族 → 普通资源；其余 → 未知（不处理）。两字段的解析结果合成规则：`largeicons` 族或 MAML 类别优先采用；其次 `category` 解析非未知时采用 `category`，否则采用 `productType`。
+3. **`category` 字段**，其次 **`productType` 字段**（`productType` 实际是 `OnlineResourceDetail` 的字段，`Resource` 上不存在；对详情对象直读字段，对其余对象反射读取）：按小写子串**有序**匹配——先大图标（`largeicon` / `large_icon`，先于 `icons` 判定，防止被其吞掉），再 MAML（`maml / widget / spwallpaper / splockscreen / spaod / superwallpaper`，先于普通资源词判定，防止 `spwallpaper`→`wallpaper`、`spaod`→`aod` 误吞），再普通资源（`theme / font / wallpaper / lockscreen / lockstyle / icons / icon / hybrid / aod / ringtone / notification / alarm / bootaudio / audioeffect`，子串自动覆盖 `videowallpaper / miwallpaper / mmsringtone` 等无分隔符复合词），其余 → 未知（不处理）。两字段的解析结果合成规则：`largeicons` 族或 MAML 类别优先采用；其次 `category` 解析非未知时采用 `category`，否则采用 `productType`。
 
 框架层（6.2 #3）使用路径等价判定：`/data/system/theme/` 下的路径含 `large_icons/largeicons` 段 → 大图标，含 MAML 关键词段 → MAML，否则普通资源；非主题路径不处理。
 
@@ -211,16 +273,16 @@
 
 三个解锁开关分别对应三类资源；"未知"类别永不改写。
 
-### 7.2 门控与探测保护
+### 8.2 门控与探测保护
 
 宿主在应用大图标前，会构造**没有 productId 的临时对象**探测环境（期望读到价格非零、购买态 false、DRM 非成功）；任何一项被强改都会导致应用失败（`apply failed`）。因此 6.1 #1–#5、#14 的回调在动作前先做对象判定：
 
 - 取对象的 `productId`（经 `onlineProperties` 间接读取，详情对象则直接读字段）；为空白 → 视为探测对象，放行原逻辑；
-- 非空白 → 按 7.1 判定类别，对应开关开启才注入。
+- 非空白 → 按 8.1 判定类别，对应开关开启才注入。
 
 大图标任务执行期间，任务持有的 Resource 进入 ThreadLocal 任务栈参与类别判定；任务方法退出时无条件出栈，保证异常路径不残留。
 
-### 7.3 DRM 处理
+### 8.3 DRM 处理
 
 **真实枚举注入**：所有注入的 `DRM_SUCCESS` 一律从被 Hook 方法的**真实返回类型**反射取得（`returnType.getField("DRM_SUCCESS")`），不打包任何 `miui.drm` 存根，保证枚举实例来自宿主进程实际加载的框架类。
 
@@ -233,7 +295,7 @@
 
 与常驻 Hook 不同，这套窗口保证系统其余时间的 DRM 全部真实运行。
 
-### 7.4 混淆对抗（DEX 特征扫描）
+### 8.4 混淆对抗（DEX 特征扫描）
 
 主题壁纸的 DRM 业务方法与大图标任务方法已被混淆且每次发版改名，用纯 Kotlin DEX 只读解析器按特征定位：
 
@@ -243,39 +305,41 @@
 - 扫描覆盖 split APK；以各 dex 条目（名称:CRC:大小）计算指纹缓存于宿主私有存储，命中缓存直接反序列化方法清单，未命中全量扫描后写入；
 - 任一环节失败整段放弃，不影响其他 Hook；两类方法都命中才写缓存。
 
-### 7.5 大图标授权文件与归属管理
+### 8.5 大图标授权文件与归属管理
 
 大图标任务方法执行前（6.1 #15 before）：
 
 1. 遍历任务类字段取第一个 Resource 类型值 → `getProductId()`（安全校验：非空、长度 ≤180、无路径分隔符与控制字符），任一步为空则放弃本次；
 2. 在宿主外部文件目录的 `MIUI/theme/.data/rights/theme/` 下创建空文件 `<productId>-largeicons.mra`，已存在则跳过。
 
-空文件只满足存在性检查，真实授权仍依赖 7.3 的 DRM 处理，两者配合使用。
+空文件只满足存在性检查，真实授权仍依赖 8.3 的 DRM 处理，两者配合使用。
 
 **归属管理**：以 journal 文件（位于宿主内部存储 `filesDir/.miui-theme-extension-rights`，文件锁 + Properties + 临时文件原子替换 + fsync）记录本模块创建的每个文件及其时间戳。功能关闭时只清理 journal 中归属本模块**且仍为空**的文件——宿主已有的、或随后被写入过内容的授权文件一律不动。创建失败时回滚（文件仍为空且时间戳未变则删除）。
 
-### 7.6 配置跨进程同步
+### 8.6 配置跨进程同步
 
 - **写入侧**（模块 UI 进程）：设备保护存储（Direct Boot 可用）的 SharedPreferences 保存全部键值，每次写入令 `revision+1` 并 `notifyChange`；
 - **读取侧**（宿主进程）：导出只读 ContentProvider（authority `me.purainity.miuithemeextension.config`）。鉴权：system UID 视为 `android` 宿主，其余按调用方 UID 反查包名并与四宿主求交；`insert/update/delete` 一律拒绝。宿主获得 Context 后注册 ContentObserver，并在注册后立即查询快照刷新内存缓存。主题商店被 MIUI 降为后台时，虽仍保留观察者注册，却可能延迟跨 UID 回调；因此在每个宿主 Activity 的 `onResume` 前同步重新查询快照。读取失败按全关配置处理且只记一次日志。
 - 开关变化通过 ContentObserver 立即通知运行中的应用宿主；用户从设置返回宿主、或重新进入详情时由前台边界拉取保证读取最新 revision；未运行的宿主会在下次启动并注册观察者后读取最新快照。同步正确性不依赖广播或轮询。
 
-### 7.6.1 已改写对象的回滚
+### 8.6.1 已改写对象的回滚
 
 主题壁纸会复用详情页与 Resource 的内存对象。`toResource()` 在解锁生效时写入的 `bought`、`productPrice`、`originPrice` 及 Resource 购买态/价格，必须以对象身份弱引用保存首次改写前的值。配置更新后，若该对象类别对应的解锁开关已关闭，立即恢复原值并移除记录；因此用户返回列表后立即再次进入详情页时，不会继续读取上一次解锁留下的缓存状态。仅停止 Hook 不能替代此回滚。
 
-### 7.7 激活自检与图标隐藏
+大图标 feed 的 `UIProduct` / `LargeIconElement`（6.1 #18–#19）同样进 journal：feed 对象在滚动中反复绑定，按对象身份去重、仅首次捕获原值；关闭 `unlock_large_icons` 后立即还原价格与购买态，已渲染的卡片随列表刷新恢复原价。
+
+### 8.7 激活自检与图标隐藏
 
 - **激活自检**：模块自身进程内 hook `ModuleStatus.isActive()` 使其返回 true；UI 据此渲染激活卡片，未激活时该方法返回编译期默认 false。不检测、不上报各宿主的接入状态；
 - **图标隐藏**：见第 4 节第 6 条，与 Hook 状态完全无关。
 
 ---
 
-## 8. 兼容性边界
+## 9. 兼容性边界
 
 | 项 | 说明 |
 |---|---|
-| `validateTheme` 签名 | MIUI 14 起为四参 `(Context,String,String,Map)→void`，MIUI 13 及更早为三参 `(Context,String,String)→boolean`，两种签名均已按精确参数匹配挂载（分别经真机 dexdump 与框架编译桩核实）。后续版本若再变更签名，该点静默跳过，框架层窗口整体不生效，主题壁纸进程的 6.1 #14 不受影响 |
+| `validateTheme` 签名 | 新版为四参 `(Context,String,String,Map)→void`，旧版为三参 `(Context,String,String)→boolean`，两种签名均已按精确参数匹配挂载（分别经真机 dexdump 与框架编译桩核实）。后续版本若再变更签名，该点静默跳过，框架层窗口整体不生效，主题壁纸进程的 6.1 #14 不受影响 |
 | DEX 扫描缓存 | 仅当 DRM 与大图标两类方法都命中才写指纹缓存；只命中一类时每次冷启动全量重扫，属性能损耗，无功能影响 |
 | 重载覆盖 | `isCanDirectAddMaMl` 按 `(int)` 精确签名挂载（各基线实测唯一重载）；`isSupportAd` 按单参 Context/File 匹配（恰为框架全部重载）。宿主未来新增其他重载时需核对语义后再扩展 |
 | 生效时机 | 已隐藏的 View 需刷新页面才恢复；关闭解锁开关时会先回滚已改写的缓存对象，返回列表后立即再次进入详情页即可看到原购买态；大图标授权文件在关闭功能时仅清理本模块创建且仍为空的文件 |

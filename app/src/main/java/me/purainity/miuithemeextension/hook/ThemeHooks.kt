@@ -55,20 +55,25 @@ class ThemeHooks(private val hooks: Hooks) {
         ResourcePolicy.allows(client.config, id(obj), kind(obj))
     private fun tag(obj: Any, value: ResourceKind) { tags[obj] = value; tags[properties(obj)] = value }
 
-    /** 保存详情对象的字段原值。详情页复用这些对象，因此关闭开关时必须逐项还原。 */
-    private fun rememberDetail(detail: Any, productId: String, kind: ResourceKind) {
-        val original = listOf("bought", "productPrice", "originPrice").mapNotNull { name ->
-            Hooks.fields(detail.javaClass).firstOrNull { it.name == name && !Modifier.isStatic(it.modifiers) }?.let { field ->
+    /** 保存对象的字段原值。宿主会复用详情页与 feed 的内存对象，因此关闭开关时必须逐项还原。 */
+    private fun rememberFields(target: Any, productId: String, kind: ResourceKind, names: List<String>) {
+        val original = names.mapNotNull { name ->
+            Hooks.fields(target.javaClass).firstOrNull { it.name == name && !Modifier.isStatic(it.modifiers) }?.let { field ->
                 field.isAccessible = true
-                FieldValue(field, field.get(detail))
+                FieldValue(field, field.get(target))
             }
         }
-        if (original.isNotEmpty()) mutations.record(detail, productId, kind) { target ->
+        if (original.isNotEmpty()) mutations.record(target, productId, kind) { target ->
             original.forEach { value ->
                 value.field.isAccessible = true
                 value.field.set(target, value.value)
             }
         }
+    }
+
+    /** 详情对象的原值快照：详情页复用这些对象（见 8.6.1）。 */
+    private fun rememberDetail(detail: Any, productId: String, kind: ResourceKind) {
+        rememberFields(detail, productId, kind, listOf("bought", "productPrice", "originPrice"))
     }
 
     /** 保存 Resource 的原购买态和价格；使用公开 getter/setter，避免依赖宿主私有字段名。 */
@@ -129,6 +134,7 @@ class ThemeHooks(private val hooks: Hooks) {
             if (client.config.enabled(Setting.PAID_BADGES)) { param.args[0] = 0; param.args[1] = 0 }
         }) }
         ads()
+        largeIconFeed()
         WidgetHooks.maml(hooks)
         mamlWallpaper()
         // 旧 presenter 类名在两个基线 APK 中均不存在，不做投机性的布尔 Hook 挂载
@@ -202,6 +208,62 @@ class ThemeHooks(private val hooks: Hooks) {
             if (!param.hasThrowable() && holder != null && holder.javaClass.simpleName in names &&
                 holder.javaClass.simpleName !in covered) hide(param)
         }) }
+    }
+    /** 大图标 feed 数据层改写（6.1 #18–#19）。推荐流卡片价格直读 `UIProduct`/`LargeIconElement`，
+     *  不经过 Resource 管线（Resource Hook 天然覆盖不到），故单独改写；价格 ≤0 时宿主格式化自带“免费”分支 */
+    private fun largeIconFeed() {
+        // #18 选择器与购买入口的元素工厂：明名类，按重载签名匹配四个 create 中的 (UIProduct, int) 版本
+        hooks.methods(ELEMENT) { method ->
+            method.name == "create" && Modifier.isStatic(method.modifiers) &&
+                method.parameterTypes.size == 2 && method.parameterTypes[0].name == PRODUCT &&
+                method.parameterTypes[1] == Int::class.javaPrimitiveType && method.returnType.name == ELEMENT
+        }.forEach { method ->
+            hooks.install(method, after = { param ->
+                val element = param.result ?: return@install
+                if (!param.hasThrowable()) zeroElement(element)
+            })
+        }
+        // #19 feed 卡片绑定：三个明名 ViewHolder 及其内部类，按参数结构定位商品载体（方法名已混淆，不可按名匹配）
+        val productClass = hooks.find(PRODUCT) ?: return
+        listOf("LargeIconHomeCardViewHolder", "LargeIconTwoItemCardViewHolder", "LargeIconItemViewHolder")
+            .mapNotNull { name -> hooks.find(HOLDER_PREFIX + name) }
+            .flatMap { holder -> sequenceOf(holder) + holder.declaredClasses.asSequence() }
+            .forEach { holder ->
+                holder.declaredMethods.asSequence()
+                    .filter { method -> !method.isSynthetic && !method.isBridge && !Modifier.isStatic(method.modifiers) && method.returnType == Void.TYPE }
+                    .mapNotNull { method -> FeedBinding.productSlot(method.parameterTypes, productClass)?.let { method to it } }
+                    .forEach { (method, slot) ->
+                        val (index, field) = slot
+                        hooks.install(method, before = { param ->
+                            if (!client.config.enabled(Setting.LARGE_ICONS)) return@install
+                            val carrier = param.args.getOrNull(index) ?: return@install
+                            val product = if (field == null) carrier else {
+                                field.isAccessible = true
+                                field.get(carrier)
+                            }
+                            if (product != null && productClass.isInstance(product)) zeroProduct(product)
+                        })
+                    }
+            }
+    }
+    /** feed 商品（UIProduct）改写：价格归零 + 已购标记，原值入 journal；productUuid 为空的探测对象放行 */
+    private fun zeroProduct(product: Any) {
+        val productId = Hooks.read(product, "productUuid") as? String
+        if (productId.isNullOrBlank()) return
+        rememberFields(product, productId, ResourceKind.LARGE_ICON, listOf("currentPriceInCent", "originPriceInCent", "isPurchased"))
+        Hooks.write(product, "currentPriceInCent", 0)
+        Hooks.write(product, "originPriceInCent", 0)
+        Hooks.write(product, "isPurchased", java.lang.Boolean.TRUE)
+    }
+    /** 选择器元素（LargeIconElement）改写：价格归零 + 已购标记，原值入 journal */
+    private fun zeroElement(element: Any) {
+        if (!client.config.enabled(Setting.LARGE_ICONS)) return
+        val productId = Hooks.read(element, "productId") as? String
+        if (productId.isNullOrBlank()) return
+        rememberFields(element, productId, ResourceKind.LARGE_ICON, listOf("currentPriceInCent", "originPriceInCent", "hasBought"))
+        Hooks.write(element, "currentPriceInCent", 0)
+        Hooks.write(element, "originPriceInCent", 0)
+        Hooks.write(element, "hasBought", true)
     }
     @Suppress("DEPRECATION")
     private fun mamlWallpaper() {
@@ -283,5 +345,8 @@ class ThemeHooks(private val hooks: Hooks) {
         private const val RESOURCE = "com.android.thememanager.basemodule.resource.model.Resource"
         private const val PROPERTIES = "com.android.thememanager.basemodule.resource.model.ResourceOnlineProperties"
         private const val DETAIL = "com.android.thememanager.detail.theme.model.OnlineResourceDetail"
+        private const val ELEMENT = "com.android.thememanager.model.LargeIconElement"
+        private const val PRODUCT = "com.android.thememanager.router.recommend.entity.UIProduct"
+        private const val HOLDER_PREFIX = "com.android.thememanager.recommend.view.listview.viewholder."
     }
 }

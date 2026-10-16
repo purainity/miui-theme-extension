@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 单 Activity 配置界面：MD3 大标题折叠顶栏 + 激活卡片 → 版本信息卡片 → 总开关卡片 → 四组功能开关 -->
+<!-- 单 Activity 配置界面：MD3 大标题折叠顶栏 + 激活卡片 → 版本信息卡片 → 总开关卡片 → 五组功能开关（角标开关跟随对应解锁开关分组） -->
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/main"
@@ -140,7 +140,7 @@
                 <include android:id="@+id/masterRow" layout="@layout/item_setting_row" />
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- 分组：主题与字体 -->
+            <!-- 分组：主题资源（解锁 + 角标跟随同组） -->
             <com.google.android.material.textview.MaterialTextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -164,6 +164,31 @@
 
                     <include android:id="@+id/resourcesRow" layout="@layout/item_setting_row" />
                     <include android:id="@+id/paidBadgesRow" layout="@layout/item_setting_row" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 分组：大图标（独立解锁管线，无角标开关——feed 卡片价格由数据层 Hook 归零，见规划 6.1 #18–#19） -->
+            <com.google.android.material.textview.MaterialTextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="8dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:text="@string/largeIcons_title"
+                android:textAppearance="@style/SettingsSection" />
+
+            <com.google.android.material.card.MaterialCardView
+                style="@style/SettingsCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToOutline="true">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
                     <include android:id="@+id/largeIconsRow" layout="@layout/item_setting_row" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
