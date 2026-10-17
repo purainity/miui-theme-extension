@@ -14,9 +14,9 @@ class EnvironmentInfoTest {
         R.string.host_theme to "MIUI 主题壁纸",
         R.string.host_assistant to "MIUI 智能助理",
         R.string.host_home to "MIUI 桌面",
-        R.string.version_format to "%1\$s (%2\$d)",
-        R.string.model_format to "%1\$s (%2\$s)",
-        R.string.android_format to "Android %1\$s (API %2\$d)",
+        R.string.version_format to $$"%1$s (%2$d)",
+        R.string.model_format to $$"%1$s (%2$s)",
+        R.string.android_format to $$"Android %1$s (API %2$d)",
         R.string.not_installed to "未安装",
         R.string.unknown_version to "无法读取",
         R.string.not_detected to "未检测到"

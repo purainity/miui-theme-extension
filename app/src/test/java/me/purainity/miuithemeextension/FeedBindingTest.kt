@@ -6,8 +6,8 @@ import org.junit.Test
 
 class FeedBindingTest {
     class UIProduct
-    class Wrapper(val product: UIProduct)
-    class Plain(val name: String)
+    class Wrapper(@Suppress("unused") val product: UIProduct)
+    class Plain(@Suppress("unused") val name: String)
 
     private val product = UIProduct::class.java
 

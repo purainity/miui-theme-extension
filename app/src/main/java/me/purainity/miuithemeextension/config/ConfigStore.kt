@@ -1,13 +1,13 @@
 package me.purainity.miuithemeextension.config
 
 import android.content.Context
-import android.net.Uri
+import androidx.core.net.toUri
 
 /** 配置跨进程契约（8.6）：配置读取 URI 与作用域宿主集合 */
 object ConfigContract {
     const val AUTHORITY = "me.purainity.miuithemeextension.config"
     // 宿主经 ContentResolver 查询的只读配置入口
-    val CONFIG_URI: Uri = Uri.parse("content://$AUTHORITY/config")
+    val CONFIG_URI = "content://$AUTHORITY/config".toUri()
     // 作用域内四个宿主进程：主题壁纸、智能助理、系统桌面与 system_server（1）
     val HOSTS = setOf("com.android.thememanager", "com.miui.personalassistant", "com.miui.home", "android")
 }

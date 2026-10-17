@@ -63,16 +63,14 @@ object ResourcePolicy {
         }
     }
     /** 数据层注入判定（8.2）：productId 空白一律放行原逻辑（探测保护），非空白按类别对应开关注入 */
-    fun allows(config: ModuleConfig, productId: String?, kind: ResourceKind): Boolean {
+    fun allows(config: ModuleConfig, productId: String?, kind: ResourceKind): Boolean =
         // 探测对象永远不会有 productId；即使在应用任务执行期间也保持原值放行
-        if (productId.isNullOrBlank()) return false
-        return config.enabled(when (kind) {
-            ResourceKind.STANDARD -> Setting.RESOURCES
-            ResourceKind.LARGE_ICON -> Setting.LARGE_ICONS
-            ResourceKind.MAML -> Setting.WIDGETS
-            ResourceKind.UNSUPPORTED -> return false
-        })
-    }
+        !productId.isNullOrBlank() && when (kind) {
+            ResourceKind.STANDARD -> config.enabled(Setting.RESOURCES)
+            ResourceKind.LARGE_ICON -> config.enabled(Setting.LARGE_ICONS)
+            ResourceKind.MAML -> config.enabled(Setting.WIDGETS)
+            ResourceKind.UNSUPPORTED -> false
+        }
     /** 商品 id 安全校验（8.5）：非空、长度 ≤180、无路径分隔符与控制字符 */
     fun safeProductId(id: String): Boolean = id.isNotBlank() && id.length <= 180 &&
         id != "." && id != ".." && id.none { it == '/' || it == '\\' || it.isISOControl() }

@@ -50,7 +50,7 @@ class Hooks(val loader: ClassLoader, val client: HostConfigClient) {
     fun constant(name: String, method: String, value: Boolean, setting: Setting, after: Boolean = false,
                  signature: ((Method) -> Boolean)? = null) {
         val candidates = methods(name) { it.name == method && it.returnType == Boolean::class.javaPrimitiveType &&
-            (signature?.invoke(it) ?: it.parameterTypes.size == 0) }
+            (signature?.invoke(it) ?: (it.parameterTypes.size == 0)) }
         if (candidates.isEmpty()) return
         candidates.forEach { target ->
             val callback: (XC_MethodHook.MethodHookParam) -> Unit = { param ->

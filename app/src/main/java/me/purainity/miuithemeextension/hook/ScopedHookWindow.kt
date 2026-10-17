@@ -13,14 +13,12 @@ class ScopedHookWindow<T>(private val install: () -> List<() -> Unit>, private v
     private var removers = emptyList<() -> Unit>()
     /** 压入一帧；enabled 时首帧安装 Hook 并递增引用计数，安装失败降级为未租借帧 */
     fun enter(value: T, enabled: Boolean): Frame<T> {
-        val leased = synchronized(this) {
-            if (!enabled) false else {
-                try {
-                    if (references == 0) removers = install().also { check(it.isNotEmpty()) }
-                    references++
-                    true
-                } catch (e: Exception) { onError(e); false }
-            }
+        val leased = enabled && synchronized(this) {
+            try {
+                if (references == 0) removers = install().also { check(it.isNotEmpty()) }
+                references++
+                true
+            } catch (e: Exception) { onError(e); false }
         }
         return Frame(value, leased).also { requireNotNull(stack.get()).add(it) }
     }

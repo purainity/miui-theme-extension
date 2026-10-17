@@ -33,7 +33,7 @@ class RuntimeSafetyTest {
     }
     @Test fun windowsNestAndBlockDisabledInnerCalls() {
         var installs = 0; var removals = 0
-        val windows = ScopedHookWindow<String>({ installs++; listOf({ removals++ }) }) { throw it }
+        val windows = ScopedHookWindow<String>({ installs++; listOf { removals++ } }) { throw it }
         val outer = windows.enter("theme", true)
         val inner = windows.enter("large", false)
         assertNull(windows.current())
@@ -51,7 +51,7 @@ class RuntimeSafetyTest {
     }
     @Test fun windowsIsolateThreadsAndRetainOtherThreadsLease() {
         val installs = AtomicInteger(); val removals = AtomicInteger()
-        val windows = ScopedHookWindow<String>({ installs.incrementAndGet(); listOf({ removals.incrementAndGet(); Unit }) }) { throw it }
+        val windows = ScopedHookWindow<String>({ installs.incrementAndGet(); listOf { removals.incrementAndGet().let { } } }) { throw it }
         val ready = CountDownLatch(1); val proceed = CountDownLatch(1); val finished = CountDownLatch(1)
         val outer = windows.enter("theme", true)
         var workerError: Throwable? = null

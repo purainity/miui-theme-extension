@@ -164,6 +164,7 @@ class MainActivity : AppCompatActivity() {
         binding.activationHint.setText(if (active) R.string.active_hint else R.string.inactive_hint)
         binding.activation.setTextColor(content)
         binding.activationHint.setTextColor(content)
+        binding.activationIcon.contentDescription = getString(if (active) R.string.active else R.string.inactive)
         binding.activationIcon.setImageResource(if (active) R.drawable.ic_status_active else R.drawable.ic_status_inactive)
         binding.activationIcon.imageTintList = ColorStateList.valueOf(content)
     }

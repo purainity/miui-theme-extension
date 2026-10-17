@@ -1,10 +1,9 @@
 package me.purainity.miuithemeextension.hook
 
 import android.app.Activity
-import android.content.Context
 import android.os.Bundle
 import android.view.View
-import android.view.ViewGroup
+import androidx.core.content.edit
 import de.robv.android.xposed.XC_MethodHook
 import me.purainity.miuithemeextension.config.*
 import me.purainity.miuithemeextension.dex.*
@@ -313,15 +312,16 @@ class ThemeHooks(private val hooks: Hooks) {
             // 以全部 dex 的名称、CRC 与大小构造 APK 指纹
             val fingerprint = paths.joinToString("|") { path ->
                 ZipFile(path).use { zip ->
-                    path + ":" + zip.entries().asSequence().filter { it.name.endsWith(".dex") }
+                    val dexEntries = zip.entries().asSequence().filter { it.name.endsWith(".dex") }
                         .joinToString(",") { "${it.name}:${it.crc}:${it.size}" }
+                    "$path:$dexEntries"
                 }
             }
             val cached = if (cache.getString("fingerprint", null) == fingerprint) cache.getStringSet("methods", null) else null
-            val found: List<Pair<String, DexIndex.MethodRef>> = if (cached != null) cached.map { line ->
+            val found: List<Pair<String, DexIndex.MethodRef>> = cached?.map { line ->
                 val parts = line.split('|'); require(parts.size == 5)
                 parts[0] to DexIndex.MethodRef(parts[1], parts[2], parts[3].split(',').filter { it.isNotEmpty() }, parts[4], 0, emptySet())
-            } else paths.flatMap { path ->
+            } ?: paths.flatMap { path ->
                 DexIndex.scanApk(File(path), "Lcom/android/thememanager/") { dex, e -> HookLog.error("DEX/$dex", e) }
                     .mapNotNull { method -> when {
                         HostDiscovery.drm(method) -> "drm" to method
@@ -351,8 +351,12 @@ class ThemeHooks(private val hooks: Hooks) {
                 }
             }
             // 两类目标都命中才写缓存，避免半命中状态被长期缓存
-            if (cached == null && drmFound > 0 && largeFound > 0) cache.edit().putString("fingerprint", fingerprint)
-                .putStringSet("methods", found.map { (type, ref) -> "$type|${ref.owner}|${ref.name}|${ref.parameters.joinToString(",")}|${ref.returns}" }.toSet()).apply()
+            if (cached == null && drmFound > 0 && largeFound > 0) {
+                cache.edit {
+                    putString("fingerprint", fingerprint)
+                    putStringSet("methods", found.map { (type, ref) -> "$type|${ref.owner}|${ref.name}|${ref.parameters.joinToString(",")}|${ref.returns}" }.toSet())
+                }
+            }
             HookLog.info("主题壁纸: DRM=$drmFound, 大图标=$largeFound")
         } catch (e: Exception) { HookLog.error("discovery", e) }
     }

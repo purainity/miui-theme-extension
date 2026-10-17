@@ -31,7 +31,7 @@ class EnvironmentInfo(
     fun entries(): List<EnvironmentEntry> = listOf(
         EnvironmentEntry(R.string.module_version, version(moduleVersionName, moduleVersionCode)),
         EnvironmentEntry(R.string.device_model, deviceModel()),
-        EnvironmentEntry(R.string.android_version, format(R.string.android_format, arrayOf(androidRelease, androidSdk))),
+        EnvironmentEntry(R.string.android_version, format(R.string.android_format, arrayOf<Any>(androidRelease, androidSdk))),
         EnvironmentEntry(R.string.miui_version, miuiVersion),
         EnvironmentEntry(R.string.xposed_api_version, xposedApiVersion ?: resolve(R.string.not_detected))
     ) + hosts.map { (label, pkg) -> EnvironmentEntry(label, hostVersion(pkg)) }
@@ -49,7 +49,7 @@ class EnvironmentInfo(
     } catch (e: Exception) { resolve(R.string.unknown_version) }
 
     private fun version(name: String, code: Long): String =
-        format(R.string.version_format, arrayOf(name, code))
+        format(R.string.version_format, arrayOf<Any>(name, code))
 
     private companion object {
         const val MARKET_NAME = "ro.product.marketname"

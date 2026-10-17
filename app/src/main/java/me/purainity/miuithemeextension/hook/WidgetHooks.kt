@@ -26,7 +26,7 @@ object WidgetHooks {
                 after = name == "isCanDirectAddMaMl", signature = { it.parameterTypes.contentEquals(arrayOf(Int::class.javaPrimitiveType)) })
         }
         // 下载许可放行（#7–#8）与小组件卡片付费角标隐藏（#12）
-        hooks.constant("$prefix.utils.PickerDetailDownloadManager\$Companion", "isCanDownload", true, Setting.WIDGETS,
+        hooks.constant($$"$$prefix.utils.PickerDetailDownloadManager$Companion", "isCanDownload", true, Setting.WIDGETS,
             signature = { it.parameterTypes.size == 1 && it.parameterTypes[0].name == "$prefix.bean.PickerDetailResponse" })
         hooks.constant("$prefix.utils.PickerDetailUtil", "isCanAutoDownloadMaMl", true, Setting.WIDGETS)
         hooks.constant("com.miui.personalassistant.picker.bean.cards.SuitEntity", "isShowPayLogo", false, Setting.WIDGET_BADGES, after = true)

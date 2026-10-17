@@ -4,8 +4,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/main"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="?attr/colorSurface">
+    android:layout_height="match_parent">
 
     <!-- MD3 大标题应用栏：展开 152dp（HeadlineSmall），滚动收起为 64dp 工具栏（TitleLarge） -->
     <!-- 未滚动为 surface，滚动后为 surfaceContainer——官方 M3 样式自带 liftOnScroll（0dp 海拔，纯色调区分） -->
@@ -73,6 +72,7 @@
                         android:id="@+id/activationIcon"
                         android:layout_width="24dp"
                         android:layout_height="24dp"
+                        android:contentDescription="@string/inactive"
                         android:src="@drawable/ic_status_inactive"
                         app:layout_constraintBottom_toBottomOf="parent"
                         app:layout_constraintStart_toStartOf="parent"
@@ -135,8 +135,7 @@
                 android:id="@+id/masterCard"
                 style="@style/SettingsCard"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:clipToOutline="true">
+                android:layout_height="wrap_content">
 
                 <include android:id="@+id/masterRow" layout="@layout/item_setting_row" />
             </com.google.android.material.card.MaterialCardView>
@@ -155,8 +154,7 @@
             <com.google.android.material.card.MaterialCardView
                 style="@style/SettingsCard"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:clipToOutline="true">
+                android:layout_height="wrap_content">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -183,8 +181,7 @@
             <com.google.android.material.card.MaterialCardView
                 style="@style/SettingsCard"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:clipToOutline="true">
+                android:layout_height="wrap_content">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -209,8 +206,7 @@
             <com.google.android.material.card.MaterialCardView
                 style="@style/SettingsCard"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:clipToOutline="true">
+                android:layout_height="wrap_content">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -236,8 +232,7 @@
             <com.google.android.material.card.MaterialCardView
                 style="@style/SettingsCard"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:clipToOutline="true">
+                android:layout_height="wrap_content">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -262,8 +257,7 @@
             <com.google.android.material.card.MaterialCardView
                 style="@style/SettingsCard"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:clipToOutline="true">
+                android:layout_height="wrap_content">
 
                 <LinearLayout
                     android:layout_width="match_parent"

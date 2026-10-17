@@ -193,7 +193,7 @@ class DexIndex(private val bytes: ByteArray) {
 object HostDiscovery {
     // 宿主特征类型描述符
     private const val RESOURCE = "Lcom/android/thememanager/basemodule/resource/model/Resource;"
-    private const val RESULT = "Lmiui/drm/DrmManager\$DrmResult;"
+    private const val RESULT = $$"Lmiui/drm/DrmManager$DrmResult;"
     /** DRM 业务方法特征（8.4）：controller.online 包下非静态、返回 DrmResult、单参 Resource，字符串含 "check rights isLegal:" 或 theme+ThemeManagerTag+/system 组合 */
     fun drm(method: DexIndex.MethodRef): Boolean = !method.isStatic &&
         method.owner.startsWith("Lcom/android/thememanager/controller/online/") &&

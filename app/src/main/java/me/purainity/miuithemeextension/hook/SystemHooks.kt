@@ -2,7 +2,6 @@ package me.purainity.miuithemeextension.hook
 
 import android.content.Context
 import me.purainity.miuithemeextension.config.*
-import java.lang.reflect.Method
 
 /** system_server 内的框架层 Hook（6.2）：DRM 瞬时窗口按调用路径租借放行，外加广告开关改写 */
 class SystemHooks(private val hooks: Hooks) {
@@ -10,14 +9,14 @@ class SystemHooks(private val hooks: Hooks) {
     // DRM 瞬时窗口（8.3）：按线程进入租借，未租借线程读到真实校验结果
     private val window = ScopedHookWindow<ResourceKind>({ installWindow() }) { error -> HookLog.error("DRM window", error) }
     // 窗口租借的类别 → 开关映射（6.2 表注）
-    private fun enabled(kind: ResourceKind): Boolean = kind != ResourceKind.UNSUPPORTED && client.config.enabled(when (kind) {
+    private fun enabled(kind: ResourceKind): Boolean = when (kind) {
         // 普通资源（含本地导入主题与付费主题）的框架层 DRM 放行统一由第三方主题开关承载
         // 解锁付费主题资源从属于该开关，故此处单挂即可同时覆盖两者
-        ResourceKind.STANDARD -> Setting.THIRD_THEME
-        ResourceKind.LARGE_ICON -> Setting.LARGE_ICONS
-        ResourceKind.MAML -> Setting.WIDGETS
-        ResourceKind.UNSUPPORTED -> Setting.MASTER
-    })
+        ResourceKind.STANDARD -> client.config.enabled(Setting.THIRD_THEME)
+        ResourceKind.LARGE_ICON -> client.config.enabled(Setting.LARGE_ICONS)
+        ResourceKind.MAML -> client.config.enabled(Setting.WIDGETS)
+        ResourceKind.UNSUPPORTED -> false
+    }
     /** 按主题目录路径判定资源类别（8.1 路径版）：大图标段、MAML 关键词段或普通资源 */
     private fun contentKind(path: String): ResourceKind {
         if (!path.startsWith("/data/system/theme/")) return ResourceKind.UNSUPPORTED
@@ -85,8 +84,9 @@ class SystemHooks(private val hooks: Hooks) {
     /** 窗口租借时装入的 DRM 放行 Hook 集（6.2 #4）；任一安装失败则回滚已装项后上抛（8.3） */
     private fun installWindow(): List<() -> Unit> {
         val targets = hooks.methods("miui.drm.DrmManager") { method ->
-            method.name == "isLegal" && method.returnType.name == "miui.drm.DrmManager\$DrmResult" ||
-                method.name in setOf("isPermanentRights", "isRightsFileLegal") && method.returnType == Boolean::class.javaPrimitiveType
+            (method.name == "isLegal" && method.returnType.name == $$"miui.drm.DrmManager$DrmResult") ||
+                (method.name in setOf("isPermanentRights", "isRightsFileLegal") &&
+                    method.returnType == Boolean::class.javaPrimitiveType)
         }
         check(targets.isNotEmpty()) { "No DRM targets" }
         val undo = ArrayList<() -> Unit>()

@@ -2,6 +2,7 @@ package me.purainity.miuithemeextension.hook
 
 import android.app.Activity
 import android.app.Application
+import android.annotation.SuppressLint
 import android.content.Context
 import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.XposedBridge
@@ -33,10 +34,7 @@ class XposedEntry : IXposedHookLoadPackage {
         try {
             if (host == "android") SystemHooks(hooks).install()
             else {
-                // 拿到宿主 Context 后连接配置客户端（5.1、8.6）
-                hooks.install(Application::class.java.getDeclaredMethod("attach", Context::class.java), after = { call ->
-                    if (!call.hasThrowable()) client.connect(call.args[0] as Context)
-                })
+                hookApplicationAttach(hooks, client)
                 // 从设置页返回宿主或新开详情时同步拉取，避免后台阶段的观察者延迟留下旧配置（8.6）
                 hooks.install(Activity::class.java.getDeclaredMethod("onResume"), before = {
                     client.refreshAtForegroundBoundary()
@@ -49,5 +47,13 @@ class XposedEntry : IXposedHookLoadPackage {
                 }
             }
         } catch (e: Throwable) { HookLog.error("entry/$host", e) }
+    }
+
+    /** 拿到宿主 Context 后连接配置客户端（5.1、8.6） */
+    @SuppressLint("DiscouragedPrivateApi")
+    private fun hookApplicationAttach(hooks: Hooks, client: HostConfigClient) {
+        hooks.install(Application::class.java.getDeclaredMethod("attach", Context::class.java), after = { call ->
+            if (!call.hasThrowable()) client.connect(call.args[0] as Context)
+        })
     }
 }
