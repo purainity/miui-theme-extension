@@ -4,8 +4,8 @@ import android.content.ComponentName
 import android.content.pm.PackageManager
 
 /**
- * 桌面图标隐藏：通过启停指向主 Activity 的 activity-alias 实现（DONT_KILL_APP）。
- * 与 Hook 激活状态完全无关；组件实际状态是每次回到界面时自愈回写的权威来源。
+ * 桌面图标隐藏（4.6）：通过启停指向主 Activity 的 activity-alias 实现（DONT_KILL_APP）。
+ * 与 Hook 激活状态完全无关；组件实际状态是每次回到界面时自愈回写的权威来源
  */
 class IconHider(private val manager: PackageManager, private val component: ComponentName) {
 

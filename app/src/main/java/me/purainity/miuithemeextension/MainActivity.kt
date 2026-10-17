@@ -23,7 +23,7 @@ import me.purainity.miuithemeextension.ui.HostPackage
 import me.purainity.miuithemeextension.ui.IconHider
 import me.purainity.miuithemeextension.ui.SettingsRowPresenter
 
-/** 模块配置界面：只负责装配与事件接线，行展示逻辑在 SettingsRowPresenter，数据源在 EnvironmentInfo */
+/** 模块配置界面（4）：只负责装配与事件接线，行展示逻辑在 SettingsRowPresenter，数据源在 EnvironmentInfo */
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var store: ConfigStore
@@ -101,7 +101,7 @@ class MainActivity : AppCompatActivity() {
         renderActivation()
     }
 
-    /** 版本信息卡片：标签与内容按声明顺序写入公共信息行 */
+    /** 版本信息卡片（4.2）：标签与内容按声明顺序写入公共信息行 */
     private fun renderEnvironment() {
         val info = EnvironmentInfo(
             resolve = { getString(it) },
@@ -127,16 +127,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** 框架 API 版本：由模块加载入口读取 XposedBridge.getXposedVersion() 并记入 ModuleStatus（应用 classloader
-     *  反射不到框架类——类仅存在于模块类加载器，UI 侧直接 Class.forName 必失败，见 8.7）；未记录显示"未检测到" */
+    /**
+     * 框架 API 版本：由模块加载入口读取 XposedBridge.getXposedVersion() 并记入 ModuleStatus（8.7）
+     * 应用 classloader 反射不到框架类——类仅存在于模块类加载器，UI 侧直接 Class.forName 必失败
+     * 未记录显示“未检测到”
+     */
     private fun probeXposedApiVersion(): String? = ModuleStatus.xposedApiVersion()?.toString()
 
-    /** 重新渲染全部开关行：勾选值、可交互性、说明与无障碍描述 */
+    /** 重新渲染全部开关行：勾选值、可交互性与说明文案（3.2 联动规则） */
     private fun renderSettings() {
         bindingValues = true
         try {
             val config = store.read()
-            // 图标设置被外部修改时以组件实际状态为准回写存储（自愈）
+            // 图标设置被外部修改时以组件实际状态为准回写存储（4.6 自愈）
             val hidden = iconHider.hidden()
             if (hidden != config[Setting.HIDE_ICON]) store.write(Setting.HIDE_ICON, hidden)
             rows.forEach { row ->
@@ -149,7 +152,7 @@ class MainActivity : AppCompatActivity() {
         } finally { bindingValues = false }
     }
 
-    /** 激活状态卡片：图标、容器颜色与文案随激活状态切换 */
+    /** 激活状态卡片（4.1）：图标、容器颜色与文案随激活状态切换 */
     private fun renderActivation() {
         val active = ModuleStatus.isActive()
         val container = MaterialColors.getColor(binding.activationCard, if (active)

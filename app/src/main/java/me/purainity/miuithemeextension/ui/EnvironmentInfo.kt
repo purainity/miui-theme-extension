@@ -11,7 +11,7 @@ data class HostPackage(val versionName: String?, val versionCode: Long)
 /**
  * 版本信息卡片的数据源。
  * 系统属性读取、宿主包查询与字符串解析全部以函数注入，回退与异常分支可在单元测试中覆盖。
- * 约定：宿主未安装（查询返回 null）显示“未安装”，查询抛异常或版本名缺失显示“无法读取”。
+ * 约定：宿主未安装（查询返回 null）显示“未安装”，查询抛异常或版本名缺失显示“无法读取”
  */
 class EnvironmentInfo(
     private val resolve: (Int) -> String,
@@ -53,6 +53,7 @@ class EnvironmentInfo(
 
     private companion object {
         const val MARKET_NAME = "ro.product.marketname"
+        // 三个宿主版本条目：主题壁纸、智能助理、系统桌面（4.2）
         val hosts = listOf(
             R.string.host_theme to "com.android.thememanager",
             R.string.host_assistant to "com.miui.personalassistant",
