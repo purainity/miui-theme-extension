@@ -92,6 +92,17 @@ class RuntimeSafetyTest {
         assertEquals("large", tags[first])
         assertNull(tags[equal])
     }
+    @Test fun moduleStatusActivatesOnMarkAndStaysMonotonic() {
+        // 默认未激活；置位后持续为激活（标志单调，无复位路径——与加载入口一次性置位语义一致）
+        if (!ModuleStatus.isActive()) {
+            assertFalse(ModuleStatus.isActive())
+            ModuleStatus.markActive()
+        }
+        assertTrue(ModuleStatus.isActive())
+        // 版本由加载入口记录，未记录时为 null；记录后保持
+        if (ModuleStatus.xposedApiVersion() == null) ModuleStatus.reportXposedApi(101)
+        assertEquals(101, ModuleStatus.xposedApiVersion())
+    }
     @Test fun cachedMutationsRestoreOnceWhenTheirGateTurnsOff() {
         val journal = ReversibleMutationJournal()
         val resource = Any()

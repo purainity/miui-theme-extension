@@ -8,7 +8,9 @@ class SystemHooks(private val hooks: Hooks) {
     private val client = hooks.client
     private val window = ScopedHookWindow<ResourceKind>({ installWindow() }) { error -> HookLog.error("DRM window", error) }
     private fun enabled(kind: ResourceKind): Boolean = kind != ResourceKind.UNSUPPORTED && client.config.enabled(when (kind) {
-        ResourceKind.STANDARD -> Setting.RESOURCES
+        // 普通资源（含本地导入主题与付费主题）的框架层 DRM 放行统一由第三方主题开关承载；
+        // 解锁付费主题资源从属于该开关，故此处单挂即可同时覆盖两者
+        ResourceKind.STANDARD -> Setting.THIRD_THEME
         ResourceKind.LARGE_ICON -> Setting.LARGE_ICONS
         ResourceKind.MAML -> Setting.WIDGETS
         ResourceKind.UNSUPPORTED -> Setting.MASTER
@@ -50,7 +52,10 @@ class SystemHooks(private val hooks: Hooks) {
         }
         validate.forEach { method ->
             hooks.install(method, before = { param ->
-                client.connect(param.args[0] as Context)
+                // 同步拉取配置（eager 连接）：system_server 早期两个注入点的连接尝试在 ContentService
+                // 启动前必然失败，validateTheme 只发生在系统就绪后，此处同步重拉可让本帧窗口的
+                // 租借判定读到真实配置（见 8.6 system_server 读取时机）；失败则全关放行真实校验
+                client.connect(param.args[0] as Context, eager = true)
                 val kind = contentKind(param.args[1] as? String ?: "")
                 param.setObjectExtra("mte.drm", window.enter(kind, enabled(kind)))
             }, after = { param ->

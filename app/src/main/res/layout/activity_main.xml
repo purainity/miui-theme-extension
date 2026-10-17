@@ -123,6 +123,7 @@
                     <include android:id="@+id/deviceModelRow" layout="@layout/item_info_row" />
                     <include android:id="@+id/androidVersionRow" layout="@layout/item_info_row" />
                     <include android:id="@+id/miuiVersionRow" layout="@layout/item_info_row" />
+                    <include android:id="@+id/xposedApiRow" layout="@layout/item_info_row" />
                     <include android:id="@+id/hostThemeRow" layout="@layout/item_info_row" />
                     <include android:id="@+id/hostAssistantRow" layout="@layout/item_info_row" />
                     <include android:id="@+id/hostHomeRow" layout="@layout/item_info_row" />
@@ -162,6 +163,7 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical">
 
+                    <include android:id="@+id/thirdThemeRow" layout="@layout/item_setting_row" />
                     <include android:id="@+id/resourcesRow" layout="@layout/item_setting_row" />
                     <include android:id="@+id/paidBadgesRow" layout="@layout/item_setting_row" />
                 </LinearLayout>

@@ -64,6 +64,7 @@ class MainActivity : AppCompatActivity() {
         }
         rows = listOf(
             SettingRow(Setting.MASTER, binding.masterRow, R.string.master_title, R.string.master_summary),
+            SettingRow(Setting.THIRD_THEME, binding.thirdThemeRow, R.string.thirdTheme_label, R.string.thirdTheme_summary),
             SettingRow(Setting.RESOURCES, binding.resourcesRow, R.string.resources_label, R.string.resources_summary),
             SettingRow(Setting.PAID_BADGES, binding.paidBadgesRow, R.string.paidBadges_label, R.string.paidBadges_summary),
             SettingRow(Setting.LARGE_ICONS, binding.largeIconsRow, R.string.largeIcons_label, R.string.largeIcons_summary),
@@ -110,6 +111,7 @@ class MainActivity : AppCompatActivity() {
             androidRelease = Build.VERSION.RELEASE,
             androidSdk = Build.VERSION.SDK_INT,
             miuiVersion = Build.VERSION.INCREMENTAL,
+            xposedApiVersion = probeXposedApiVersion(),
             systemProperty = ::readSystemProperty,
             fallbackModel = Build.MODEL,
             device = Build.DEVICE,
@@ -117,13 +119,17 @@ class MainActivity : AppCompatActivity() {
         )
         val infoRows = listOf(
             binding.moduleVersionRow, binding.deviceModelRow, binding.androidVersionRow, binding.miuiVersionRow,
-            binding.hostThemeRow, binding.hostAssistantRow, binding.hostHomeRow
+            binding.xposedApiRow, binding.hostThemeRow, binding.hostAssistantRow, binding.hostHomeRow
         )
         info.entries().forEachIndexed { index, entry ->
             infoRows[index].rowLabel.setText(entry.label)
             infoRows[index].rowValue.text = entry.value
         }
     }
+
+    /** 框架 API 版本：由模块加载入口读取 XposedBridge.getXposedVersion() 并记入 ModuleStatus（应用 classloader
+     *  反射不到框架类——类仅存在于模块类加载器，UI 侧直接 Class.forName 必失败，见 8.7）；未记录显示"未检测到" */
+    private fun probeXposedApiVersion(): String? = ModuleStatus.xposedApiVersion()?.toString()
 
     /** 重新渲染全部开关行：勾选值、可交互性、说明与无障碍描述 */
     private fun renderSettings() {

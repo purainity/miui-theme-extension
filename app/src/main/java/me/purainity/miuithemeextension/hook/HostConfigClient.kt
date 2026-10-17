@@ -22,13 +22,18 @@ class HostConfigClient(private val host: String) {
     private val observer by lazy { object : ContentObserver(handler) {
         override fun onChange(selfChange: Boolean) { refresh() }
     } }
-    @Synchronized fun connect(value: Context) {
-        if (context != null) return
-        context = value.applicationContext ?: value
-        onAttached.forEach { callback ->
-            try { callback(requireNotNull(context)) } catch (e: Exception) { HookLog.error("host startup", e) }
+    @Synchronized fun connect(value: Context, eager: Boolean = false) {
+        if (context == null) {
+            context = value.applicationContext ?: value
+            onAttached.forEach { callback ->
+                try { callback(requireNotNull(context)) } catch (e: Exception) { HookLog.error("host startup", e) }
+            }
         }
-        handler.post(::refresh)
+        // 配置从未成功读取时在边界调用处重试拉取：eager 同步执行（validateTheme 入口系统必然就绪，
+        // binder 线程短暂阻塞可接受，确保本帧窗口的租借判定读到真实配置）；其余入口保持异步，不拖慢宿主启动。
+        // 成功读取后由 ContentObserver 接管变更通知，不再重复拉取
+        if (loaded && !configError) return
+        if (eager) refresh() else handler.post(::refresh)
     }
     /** 宿主回到前台或即将进入详情时拉取一次，补偿后台状态下被 MIUI 延迟的观察者回调。 */
     fun refreshAtForegroundBoundary() = refresh()

@@ -2,6 +2,7 @@ package me.purainity.miuithemeextension.config
 
 enum class Setting(val key: String, val defaultValue: Boolean = false) {
     MASTER("master_enabled"),
+    THIRD_THEME("allow_third_party_themes", true),
     RESOURCES("unlock_paid_resources"),
     PAID_BADGES("hide_paid_badges", true),
     LARGE_ICONS("unlock_large_icons"),
@@ -14,14 +15,17 @@ enum class Setting(val key: String, val defaultValue: Boolean = false) {
 data class ModuleConfig(val version: Long = 0, val values: Map<Setting, Boolean> = emptyMap()) {
     operator fun get(setting: Setting): Boolean = values[setting] ?: setting.defaultValue
     fun enabled(setting: Setting): Boolean = this[Setting.MASTER] && when (setting) {
+        // 解锁付费主题资源从属于第三方主题开关：数据层改写依赖框架层 DRM 窗口持续放行才能持久生效
+        Setting.RESOURCES -> this[setting] && this[Setting.THIRD_THEME]
         // 价格控件实测仅被主题/字体卡片使用，隐藏主题付费标识只从属于主题资源解锁
-        Setting.PAID_BADGES -> this[setting] && this[Setting.RESOURCES]
+        Setting.PAID_BADGES -> this[setting] && this[Setting.RESOURCES] && this[Setting.THIRD_THEME]
         Setting.WIDGET_BADGES -> this[setting] && this[Setting.WIDGETS]
         else -> this[setting]
     }
     fun interactive(setting: Setting): Boolean = setting == Setting.MASTER ||
         this[Setting.MASTER] && when (setting) {
-            Setting.PAID_BADGES -> this[Setting.RESOURCES]
+            Setting.RESOURCES -> this[Setting.THIRD_THEME]
+            Setting.PAID_BADGES -> this[Setting.RESOURCES] && this[Setting.THIRD_THEME]
             Setting.WIDGET_BADGES -> this[Setting.WIDGETS]
             else -> true
         }

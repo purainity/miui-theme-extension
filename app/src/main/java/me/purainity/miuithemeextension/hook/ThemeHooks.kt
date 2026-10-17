@@ -53,6 +53,10 @@ class ThemeHooks(private val hooks: Hooks) {
     }
     private fun allowed(obj: Any?): Boolean = obj != null && !readingOriginal(obj) &&
         ResourcePolicy.allows(client.config, id(obj), kind(obj))
+    /** 本地导入主题（无 productId 的普通资源）在第三方主题开关下放行 DRM；不触碰价格与购买态 */
+    private fun thirdParty(obj: Any?): Boolean = obj != null && !readingOriginal(obj) &&
+        client.config.enabled(Setting.THIRD_THEME) &&
+        kind(obj) == ResourceKind.STANDARD && id(obj).isNullOrBlank()
     private fun tag(obj: Any, value: ResourceKind) { tags[obj] = value; tags[properties(obj)] = value }
 
     /** 保存对象的字段原值。宿主会复用详情页与 feed 的内存对象，因此关闭开关时必须逐项还原。 */
@@ -308,7 +312,12 @@ class ThemeHooks(private val hooks: Hooks) {
                 if (type == "drm") {
                     val success = Hooks.drmSuccess(method)
                     if (hooks.install(method, after = { param ->
-                        if (!param.hasThrowable() && param.result != null && allowed(param.args.firstOrNull())) { param.result = success }
+                        // 两条放行路径：有 productId 的商店资源按类别判定（探测保护见 8.2）；
+                        // 无 productId 的普通资源即本地导入主题，在第三方主题开关下放行 DRM——
+                        // 治个别 mtz 在应用时被应用层校验拦截的场景（与框架层窗口共同覆盖"导入-应用-持久"全链路）
+                        val resource = param.args.firstOrNull()
+                        if (!param.hasThrowable() && param.result != null &&
+                            (allowed(resource) || thirdParty(resource))) { param.result = success }
                     }) != null) drmFound++
                 } else if (Hooks.fields(clazz).any { it.type.name == RESOURCE && !Modifier.isStatic(it.modifiers) }) {
                     if (largeTask(method)) largeFound++

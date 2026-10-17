@@ -4,11 +4,13 @@
     <string name="inactive">模块未激活</string>
     <string name="active">模块已激活</string>
     <string name="inactive_hint">请先在 LSPosed 中启用模块并勾选作用域，再重启手机</string>
-    <string name="active_hint">首次激活后请重启手机，此后以下开关修改后即时生效</string>
+    <string name="active_hint">首次启用需重启手机，此后开关修改即时生效</string>
     <string name="module_version">模块版本</string>
     <string name="device_model">设备型号</string>
     <string name="android_version">系统版本</string>
     <string name="miui_version">MIUI 版本</string>
+    <string name="xposed_api_version">Xposed API 版本</string>
+    <string name="not_detected">未检测到</string>
     <string name="host_theme">主题壁纸</string>
     <string name="host_assistant">智能助理</string>
     <string name="host_home">系统桌面</string>
@@ -21,6 +23,8 @@
     <string name="other_title">其他设置</string>
     <string name="master_title">总开关</string>
     <string name="master_summary">开启后下面的功能才会生效</string>
+    <string name="thirdTheme_label">允许使用第三方主题</string>
+    <string name="thirdTheme_summary">本地导入的 mtz 主题可正常应用，不会被系统还原</string>
     <string name="resources_label">解锁付费主题资源</string>
     <string name="resources_summary">允许直接使用付费主题、字体等资源</string>
     <string name="paidBadges_label">隐藏主题付费标识</string>

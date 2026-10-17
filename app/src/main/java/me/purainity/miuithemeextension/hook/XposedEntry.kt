@@ -4,7 +4,6 @@ import android.app.Activity
 import android.app.Application
 import android.content.Context
 import de.robv.android.xposed.IXposedHookLoadPackage
-import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.callbacks.XC_LoadPackage
 import me.purainity.miuithemeextension.config.ConfigContract
@@ -15,11 +14,16 @@ class XposedEntry : IXposedHookLoadPackage {
         val host = param.packageName
         val loader = param.classLoader ?: return
         if (host == "me.purainity.miuithemeextension") {
+            // 激活自检：不 Hook 任何方法——经应用 classloader 反射置位静态标志（8.7）。
+            // 必须经 param.classLoader 取类：新框架的模块类加载器与宿主 classpath 隔离，
+            // 直接静态赋值有类身份分裂风险，此处保证与 UI 读取的是同一个 Class 实例
             try {
                 val status = Class.forName("me.purainity.miuithemeextension.ModuleStatus", false, loader)
-                XposedBridge.hookMethod(status.getDeclaredMethod("isActive"), object : XC_MethodHook() {
-                    override fun beforeHookedMethod(param: MethodHookParam) { param.result = true }
-                })
+                status.getDeclaredMethod("markActive").invoke(null)
+                // 框架 API 版本只能在此读取：XposedBridge 由模块类加载器解析，应用自身 classloader
+                // 反射不可达（UI 侧 Class.forName 必失败），故经同一反射通道带回 UI 进程；失败不影响激活置位
+                val version = try { XposedBridge.getXposedVersion() } catch (e: Throwable) { HookLog.error("xposed version", e); null }
+                if (version != null) status.getDeclaredMethod("reportXposedApi", Int::class.javaPrimitiveType).invoke(null, version)
             } catch (e: Throwable) { HookLog.error("activation", e) }
             return
         }

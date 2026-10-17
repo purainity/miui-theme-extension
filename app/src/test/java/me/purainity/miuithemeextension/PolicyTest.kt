@@ -8,12 +8,34 @@ class PolicyTest {
     @Test fun defaultsAndDependencies() {
         val off = ModuleConfig()
         assertTrue(off[Setting.PAID_BADGES]); assertTrue(off[Setting.WIDGET_BADGES])
+        // 允许使用第三方主题默认开启（使用性功能、不修改价格），其余功能开关默认关闭
+        assertTrue(off[Setting.THIRD_THEME])
         Setting.entries.forEach { assertFalse(off.enabled(it)) }
         val config = ModuleConfig(values = mapOf(Setting.MASTER to true, Setting.WIDGETS to true))
         assertTrue(config.enabled(Setting.WIDGET_BADGES))
         assertFalse(config.enabled(Setting.PAID_BADGES))
         assertFalse(config.interactive(Setting.PAID_BADGES))
         assertTrue(config[Setting.PAID_BADGES]) // 关闭父开关时保留子开关的存储值
+    }
+    @Test fun resourcesFollowThirdPartyTheme() {
+        // 解锁付费主题资源从属于第三方主题开关：显式关闭后失效，但存储值保留、不可交互
+        val blocked = ModuleConfig(values = mapOf(
+            Setting.MASTER to true, Setting.THIRD_THEME to false, Setting.RESOURCES to true, Setting.PAID_BADGES to true))
+        assertFalse(blocked.enabled(Setting.RESOURCES))
+        assertFalse(blocked.interactive(Setting.RESOURCES))
+        assertFalse(blocked.enabled(Setting.PAID_BADGES))
+        assertFalse(blocked.interactive(Setting.PAID_BADGES))
+        assertTrue(blocked[Setting.RESOURCES]) // 存储值保留
+        // 第三方主题开关独立生效（无需解锁付费资源），数据层不生效
+        val thirdOnly = ModuleConfig(values = mapOf(Setting.MASTER to true, Setting.THIRD_THEME to true))
+        assertTrue(thirdOnly.enabled(Setting.THIRD_THEME))
+        assertFalse(thirdOnly.enabled(Setting.RESOURCES))
+        assertTrue(thirdOnly.interactive(Setting.RESOURCES))
+        // 两者都开启时全链生效
+        val both = ModuleConfig(values = mapOf(
+            Setting.MASTER to true, Setting.THIRD_THEME to true, Setting.RESOURCES to true, Setting.PAID_BADGES to true))
+        assertTrue(both.enabled(Setting.RESOURCES))
+        assertTrue(both.enabled(Setting.PAID_BADGES))
     }
     @Test fun paidBadgesFollowsResourcesOnly() {
         // 价格控件实测仅被主题/字体卡片使用，隐藏主题付费标识只从属于主题资源解锁，与大图标无关

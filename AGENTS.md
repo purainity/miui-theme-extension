@@ -2,7 +2,7 @@
 
 ## 项目定位
 
-MIUI 主题扩展：Xposed 模块（LSPosed）+ 配置 UI，单一 APK，单模块 `:app`，包名 `me.purainity.miuithemeextension`。目标系统 MIUI 12–14。
+MIUI 主题扩展：Xposed 模块（LSPosed）+ 配置 UI，单一 APK，单模块 `:app`，包名 `me.purainity.miuithemeextension`。目标系统 MIUI 12–14 及更新的 MIUI 版本。
 
 具体设计（Hook 点、开关语义、核心机制、兼容边界）一律以 `docs/MIUI主题扩展项目规划.md` 为准，本文件不重复。
 
@@ -22,9 +22,8 @@ MIUI 主题扩展：Xposed 模块（LSPosed）+ 配置 UI，单一 APK，单模�
 - 禁止 `com.android.support` 旧支持库；
 - 禁止引入任何携带 so 原生库的依赖；
 - 禁止引入 libxposed（任何形式，含 100/101/102 Hook API 与 Service Provider）；
-- 禁止 `XSharedPreferences`；
+- 禁止经典 `XSharedPreferences` 与 New XSharedPreferences（NSP）两种配置读取方案，配置跨进程同步一律走 ContentProvider（选型依据见规划文档 2.1）；
 - 禁止任何需要 root 权限的功能；
-- 禁止实现小窗、背屏/副屏相关功能；
 - 文案禁止出现 "HyperOS"，一律表述为 MIUI。
 
 **协作规范**（仅约束 agent 行为，规划文档不涉及）：

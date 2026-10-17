@@ -21,17 +21,19 @@ class EnvironmentInfo(
     private val androidRelease: String,
     private val androidSdk: Int,
     private val miuiVersion: String,
+    private val xposedApiVersion: String?,
     private val systemProperty: (String) -> String,
     private val fallbackModel: String,
     private val device: String,
     private val hostLookup: (String) -> HostPackage?
 ) {
-    /** 按界面顺序返回全部条目：模块版本、设备型号、系统版本、MIUI 版本、三个宿主版本 */
+    /** 按界面顺序返回全部条目：模块版本、设备型号、系统版本、MIUI 版本、Xposed API 版本、三个宿主版本 */
     fun entries(): List<EnvironmentEntry> = listOf(
         EnvironmentEntry(R.string.module_version, version(moduleVersionName, moduleVersionCode)),
         EnvironmentEntry(R.string.device_model, deviceModel()),
         EnvironmentEntry(R.string.android_version, format(R.string.android_format, arrayOf(androidRelease, androidSdk))),
-        EnvironmentEntry(R.string.miui_version, miuiVersion)
+        EnvironmentEntry(R.string.miui_version, miuiVersion),
+        EnvironmentEntry(R.string.xposed_api_version, xposedApiVersion ?: resolve(R.string.not_detected))
     ) + hosts.map { (label, pkg) -> EnvironmentEntry(label, hostVersion(pkg)) }
 
     /** 设备型号：营销名（ro.product.marketname）为空白时回退到 Build.MODEL */
