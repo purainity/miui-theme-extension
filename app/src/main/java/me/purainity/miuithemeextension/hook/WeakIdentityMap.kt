@@ -22,4 +22,8 @@ class WeakIdentityMap<V> {
     @Synchronized operator fun get(key: Any): V? { clean(); return values[Key(key)] }
     @Synchronized operator fun set(key: Any, value: V) { clean(); values[Key(key, queue)] = value }
     @Synchronized fun remove(key: Any): V? { clean(); return values.remove(Key(key)) }
+    @Synchronized fun snapshot(): List<Pair<Any, V>> {
+        clean()
+        return values.mapNotNull { (key, value) -> key.get()?.let { it to value } }
+    }
 }

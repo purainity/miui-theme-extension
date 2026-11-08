@@ -91,7 +91,7 @@
 | `hide_paid_badges` | true | 隐藏主题付费标识 | 主题与字体卡片的价格/折扣控件归零显示（仅 UI 层；实测该控件仅被主题、字体卡片使用，故仅从属于本解锁开关） |
 | `unlock_large_icons` | false | 解锁付费大图标 | 付费大图标可下载应用，商店 feed 卡片价格显示为免费；另含应用任务授权文件（8.5） |
 | `unlock_paid_widgets` | false | 解锁付费小组件 | 智能助理/桌面/商店中付费 MAML 小组件可下载、可添加；超级壁纸按 MAML 资源链路适配 |
-| `hide_widget_pay_badges` | true | 隐藏小组件付费标识 | 智能助理组件卡片不再显示付费角标（仅 UI 层） |
+| `hide_widget_pay_badges` | true | 隐藏小组件付费标识 | 智能助理的套装与普通小组件卡片不再显示付费角标（仅 UI 层，包含精选、分类与趣味页面） |
 | `hide_theme_ads` | true | 隐藏主题商店广告 | 广告判定无效、视频广告失效、广告卡片不占位 |
 | `hide_launcher_icon` | false | 隐藏模块图标 | 隐藏桌面图标（默认显示）；与激活状态无关 |
 
@@ -102,7 +102,7 @@
 - 依赖不满足时，子开关原生禁用、整行不可点击，标题与说明文字保持原色不变；
 - 关闭解锁开关只禁用子开关，存储值保留；重新开启解锁开关时不自动改写子开关；
 - 总开关关闭时，其余全部开关禁用；
-- 大图标**不设**角标开关：角标开关对应纯展示层 Hook（主题/字体的 `DiscountPriceView` 入参、小组件的 `isShowPayLogo` 标志），而大图标卡片价格直读 `UIProduct`/`LargeIconElement` 模型字段——该字段同时被购买判定读取，feed 显示归零（6.1 #18–#19）与 #1–#5 同属数据层逻辑，由 `unlock_large_icons` 统一承担，不可按字段组拆分回滚。
+- 大图标**不设**角标开关：角标开关对应纯展示层 Hook（主题/字体的 `DiscountPriceView` 入参、小组件的套装角标标志及普通卡片角标视图），而大图标卡片价格直读 `UIProduct`/`LargeIconElement` 模型字段——该字段同时被购买判定读取，feed 显示归零（6.1 #18–#19）与 #1–#5 同属数据层逻辑，由 `unlock_large_icons` 统一承担，不可按字段组拆分回滚。
 
 ### 3.3 生效判定
 
@@ -125,7 +125,7 @@
 | `unlock_large_icons` | 6.1 #15、#18–#19；6.1 #1–#5、#14 中类别为大图标；6.2 #3–#4 窗口类别为大图标 |
 | `unlock_paid_widgets` | 6.1 #13、#17；6.1 #1–#5、#14 中类别为 MAML；6.2 #3–#4 窗口类别为 MAML；6.3 全部 #1–#11；6.4 全部 |
 | `hide_paid_badges` | 6.1 #6 |
-| `hide_widget_pay_badges` | 6.3 #12 |
+| `hide_widget_pay_badges` | 6.3 #12–#13 |
 | `hide_theme_ads` | 6.1 #7–#12；6.2 #5–#6 |
 | `hide_launcher_icon` | 无 Hook，仅控制 activity-alias 启停 |
 
@@ -308,9 +308,10 @@
 | 9 | `PickerDetailViewModel` → `shouldCheckMamlBoughtState(int)` | 按名，`(I)Z` | before | `setResult(false)` |
 | 10 | `PickerDetailViewModel` → `isTargetPositionMamlPayAndDownloading(int)` | 按名，`(I)Z` | before | `setResult(false)` |
 | 11 | `PickerDetailViewModel` → `checkIsIndependentProcessWidgetForPosition(int)` | 按名，`(I)Z` | before | `setResult(true)` |
-| 12 | `picker.bean.cards.SuitEntity` → `isShowPayLogo()` | 按名，`()Z` | after | `setResult(false)` |
+| 12 | `picker.bean.cards.SuitEntity` → `isShowPayLogo()` | 按名，`()Z` | after | `setResult(false)`，覆盖套装卡片 |
+| 13 | `android.view.View` → `setVisibility(int)` | 按名，`(I)V`；仅智能助理进程，限本包资源 `iv_pay_logo` / `iv_pay_logo_with_add` 对应的 `ImageView` | before | 将宿主请求显示的普通小组件付费角标改为 `GONE`；保留其他可见性请求，不更改小组件付费状态 |
 
-本进程 #1–#11 属 `unlock_paid_widgets`，#12 属 `hide_widget_pay_badges`（均含 master 门控）。
+本进程 #1–#11 属 `unlock_paid_widgets`，#12–#13 属 `hide_widget_pay_badges`（均含 master 门控）。#13 在宿主 Context 就绪后按资源名解析 ID，分别覆盖普通卡片的两种角标；找不到的 ID 跳过，并在宿主启动日志报告匹配数。该通用 View 方法的挂载成功不代表资源 ID 已命中。普通卡片的 `RegularWidgetEntity.isPay()` 还参与长按等行为，不能为隐藏角标而全局改写。
 
 ### 6.4 `com.miui.home`（桌面）
 
@@ -486,6 +487,8 @@ main_tab_sort（服务端：TAB 显隐与顺序）
 
 大图标 feed 的 `UIProduct` / `LargeIconElement`（6.1 #18–#19）同样进 journal：feed 对象在滚动中反复绑定，按对象身份去重、仅首次捕获原值；关闭 `unlock_large_icons` 后立即还原价格与购买态，已渲染的卡片随列表刷新恢复原价。
 
+智能助理普通小组件角标（6.3 #13）按视图身份弱引用记录宿主最近请求的可见性。总开关、小组件解锁或角标开关使该功能生效状态变化时，在主线程向仍存活的视图重放最近请求：开启时只隐藏原本可见的角标，关闭或配置读取失败时恢复宿主请求的状态；后续视图绑定继续按当前配置处理。套装卡片的 #12 仍需重新绑定后更新。
+
 ### 8.7 激活自检与图标隐藏
 
 - **激活自检**：不 Hook 任何方法——模块加载入口在自身进程经 `param.classLoader` 反射调用 `ModuleStatus.markActive()` 置静态标志（必须经应用 classloader 取类：新框架的模块类加载器与宿主 classpath 隔离，直接静态赋值有类身份分裂风险，反射走应用 classloader 保证与 UI 读取同一个 Class 实例）；框架 API 版本由入口直接调用 `XposedBridge.getXposedVersion()`（该类仅模块类加载器可见，应用自身 classloader 反射不可达——UI 侧 `Class.forName` 必失败）并经同一反射通道记入 `ModuleStatus`；UI 读 `ModuleStatus.isActive()` 渲染激活卡片，未被框架加载时保持编译期默认 false。不检测、不上报各宿主的接入状态；
@@ -500,5 +503,6 @@ main_tab_sort（服务端：TAB 显隐与顺序）
 | `validateTheme` 签名 | 新版为四参 `(Context,String,String,Map)→void`，旧版为三参 `(Context,String,String)→boolean`，两种签名均已按精确参数匹配挂载（分别经真机 dexdump 与框架编译桩核实）。后续版本若再变更签名，两种签名均未挂载时功能组输出警告，框架层窗口整体不生效，主题壁纸进程的 6.1 #14 不受影响 |
 | DEX 扫描缓存 | 仅当 DRM 与大图标两类方法都命中才写指纹缓存；只命中一类时每次冷启动全量重扫，属性能损耗，无功能影响 |
 | 重载覆盖 | `isCanDirectAddMaMl` 按 `(int)` 精确签名挂载（实测唯一重载）；`isSupportAd` 按单参 Context/File 匹配（恰为框架全部重载）。宿主未来新增其他重载时需核对语义后再扩展 |
-| 生效时机 | 已隐藏的 View 需刷新页面才恢复；关闭解锁开关时会先回滚已改写的缓存对象，返回列表后立即再次进入详情页即可看到原购买态；大图标授权文件在关闭功能时仅清理本模块创建且仍为空的文件 |
+| 生效时机 | 智能助理已跟踪的普通小组件角标在开关变化时重放可见性，套装卡片及其他已隐藏的 View 仍需刷新页面；关闭解锁开关时会先回滚已改写的缓存对象，返回列表后立即再次进入详情页即可看到原购买态；大图标授权文件在关闭功能时仅清理本模块创建且仍为空的文件 |
+| 普通小组件角标 | 智能助理通过资源名识别 `iv_pay_logo` 与 `iv_pay_logo_with_add`；未来宿主若改名或改用其他视图，该部分需重新适配，套装卡片不受影响 |
 | 框架层配置读取时机 | system_server 两个早期注入点（6.2 #1/#2）的连接尝试在 ContentService 启动前必然失败（预期行为，异步执行不阻塞开机）；配置在 validateTheme 入口同步重拉直至成功（见 8.6）；模块不可用期间框架层开关保持全关、系统 DRM 真实运行（fail-closed） |
