@@ -6,7 +6,10 @@ import java.io.FileOutputStream
 import java.io.RandomAccessFile
 import java.util.Properties
 
-/** 大图标授权占位文件（8.5）：空文件只满足存在性检查，真实授权仍依赖 8.3 的 DRM 处理。归属管理只登记本模块新建的空文件；宿主已有的、或随后被写入内容的授权文件一律归属宿主 */
+/**
+ * 大图标授权占位文件（8.5）：空文件只满足存在性检查，真实授权仍依赖 8.3 的 DRM 处理
+ * 归属管理只登记本模块新建的空文件；宿主已有的、或随后被写入内容的授权文件一律归属宿主
+ */
 class OwnedRightsFiles(private val folder: File, private val journal: File) {
     // 进程内 synchronized 与文件锁双层互斥（8.5），并发操作日志时串行化
     private fun <T> locked(action: (Properties) -> T): T = synchronized(LOCK) {

@@ -1,22 +1,18 @@
 <resources>
     <style name="Theme.MiuiThemeExtension" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="android:colorBackground">?attr/colorSurface</item>
-        <item name="materialSwitchStyle">@style/Widget.Material3.CompoundButton.MaterialSwitch</item>
+        <!-- 窗口绘制页面底色，Activity 根布局无需再重复绘制同色背景 -->
+        <item name="android:windowBackground">?attr/colorSurface</item>
     </style>
 
-    <style name="SettingsCard" parent="Widget.Material3.CardView.Filled">
-        <item name="cardBackgroundColor">?attr/colorSurfaceContainerLow</item>
-        <item name="shapeAppearance">@style/ShapeAppearance.Material3.Corner.Medium</item>
-        <item name="cardElevation">0dp</item>
-        <item name="strokeWidth">0dp</item>
+    <style name="Widget.MiuiThemeExtension.SettingsCard" parent="Widget.Material3.CardView.Filled">
+        <item name="cardBackgroundColor">?attr/colorSurfaceContainer</item>
+        <item name="cardPreventCornerOverlap">false</item>
+        <item name="cardUseCompatPadding">false</item>
+        <item name="android:stateListAnimator">@null</item>
     </style>
 
-    <style name="StatusCard" parent="SettingsCard">
+    <!-- 激活状态卡：背景颜色由代码随激活状态动态设置，默认取 primaryContainer -->
+    <style name="Widget.MiuiThemeExtension.StatusCard" parent="Widget.MiuiThemeExtension.SettingsCard">
         <item name="cardBackgroundColor">?attr/colorPrimaryContainer</item>
-        <item name="shapeAppearance">@style/ShapeAppearance.Material3.Corner.Large</item>
-    </style>
-
-    <style name="SettingsSection" parent="TextAppearance.Material3.TitleSmall">
-        <item name="android:textColor">?attr/colorPrimary</item>
     </style>
 </resources>

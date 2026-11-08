@@ -1,10 +1,15 @@
 <resources>
+    <!-- 通用 -->
     <string name="app_name">MIUI 主题扩展</string>
     <string name="module_description">MIUI 主题壁纸增强模块</string>
+
+    <!-- 配置界面：激活状态卡 -->
     <string name="inactive">模块未激活</string>
     <string name="active">模块已激活</string>
     <string name="inactive_hint">请先在 LSPosed 中启用模块并勾选作用域，再重启手机</string>
     <string name="active_hint">首次启用需重启手机，此后开关修改即时生效</string>
+
+    <!-- 配置界面：版本信息卡 -->
     <string name="module_version">模块版本</string>
     <string name="device_model">设备型号</string>
     <string name="android_version">系统版本</string>
@@ -16,31 +21,59 @@
     <string name="host_home">系统桌面</string>
     <string name="not_installed">未安装</string>
     <string name="unknown_version">无法读取</string>
-    <string name="resources_title">主题资源</string>
-    <string name="largeIcons_title">大图标</string>
-    <string name="widgets_title">小组件</string>
-    <string name="ads_title">广告</string>
-    <string name="other_title">其他设置</string>
-    <string name="master_title">总开关</string>
+
+    <!-- 配置界面：分区标题 -->
+    <string name="section_resources">主题资源</string>
+    <string name="section_large_icons">大图标</string>
+    <string name="section_widgets">小组件</string>
+    <string name="section_ads">广告</string>
+    <string name="section_other">其他设置</string>
+
+    <!-- 配置界面：功能开关 -->
+    <string name="master_label">总开关</string>
     <string name="master_summary">开启后下面的功能才会生效</string>
-    <string name="thirdTheme_label">允许使用第三方主题</string>
-    <string name="thirdTheme_summary">本地导入的 mtz 主题可正常应用，不会被系统还原</string>
+    <string name="third_theme_label">允许使用第三方主题</string>
+    <string name="third_theme_summary">本地导入的 mtz 主题可正常应用，不会被系统还原</string>
     <string name="resources_label">解锁付费主题资源</string>
     <string name="resources_summary">允许直接使用付费主题、字体等资源</string>
-    <string name="paidBadges_label">隐藏主题付费标识</string>
-    <string name="paidBadges_summary">主题与字体卡片上的价格显示为免费</string>
-    <string name="largeIcons_label">解锁付费大图标</string>
-    <string name="largeIcons_summary">允许直接使用付费大图标，列表价格显示为免费</string>
+    <string name="paid_badges_label">隐藏主题付费标识</string>
+    <string name="paid_badges_summary">主题与字体卡片上的价格显示为免费</string>
+    <string name="large_icons_label">解锁付费大图标</string>
+    <string name="large_icons_summary">允许直接使用付费大图标，列表价格显示为免费</string>
     <string name="widgets_label">解锁付费小组件</string>
     <string name="widgets_summary">允许直接使用付费小组件</string>
-    <string name="widgetBadges_label">隐藏小组件付费标识</string>
-    <string name="widgetBadges_summary">小组件列表中不再显示付费标识</string>
+    <string name="widget_badges_label">隐藏小组件付费标识</string>
+    <string name="widget_badges_summary">小组件列表中不再显示付费标识</string>
     <string name="ads_label">隐藏主题商店广告</string>
     <string name="ads_summary">去除主题壁纸 APP 内广告卡片</string>
-    <string name="hideIcon_label">隐藏模块桌面图标</string>
-    <string name="hideIcon_summary">桌面不再显示本应用图标，仍可从 LSPosed 打开设置。请务必在 LSPosed 中关闭“强制显示桌面图标”功能</string>
+    <string name="hide_icon_label">隐藏模块桌面图标</string>
+    <string name="hide_icon_summary">桌面不再显示本应用图标，仍可从 LSPosed 打开设置。请务必在 LSPosed 中关闭“强制显示桌面图标”功能</string>
+
+    <!-- 提示 -->
     <string name="save_failed">设置保存失败，请重试</string>
     <string name="icon_failed">图标设置失败，请重试</string>
+    <string name="open_link_failed">无法打开链接</string>
+
+    <!-- 关于页 -->
+    <string name="app_icon_description">应用图标</string>
+    <string name="back">返回</string>
+    <string name="about">关于</string>
+    <string name="about_version">版本 %1$s（%2$d）</string>
+    <string name="about_project_github">本项目 GitHub</string>
+    <string name="about_author">作者：轻雨 Purainity</string>
+    <string name="licenses_group">开源许可</string>
+
+    <!-- 关于页：致谢 -->
+    <string name="thanks_group">致谢</string>
+    <string name="thanks_miui_crack_title">Miui 主题破解</string>
+    <string name="thanks_miui_crack">yuk、YuKongA、linqiqi</string>
+    <string name="thanks_tangjin_title">PersonalizeHyperTheme / FuckMiuiThemeManager</string>
+    <string name="thanks_tangjin">tangjin</string>
+    <string name="thanks_miui_extension">MIUI 扩展</string>
+    <string name="thanks_miui_extension_package">com.miui.android.t</string>
+
+    <!-- 格式化 -->
+    <string name="licenses_project_meta">%1$s · %2$s</string>
     <string name="version_format">%1$s (%2$d)</string>
     <string name="model_format">%1$s (%2$s)</string>
     <string name="android_format">Android %1$s (API %2$d)</string>

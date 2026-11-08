@@ -71,7 +71,10 @@ class ThemeHooks(private val hooks: Hooks) {
     // 对象与其属性载体同时打标签（8.1：两者均作为键命中）
     private fun tag(obj: Any, value: ResourceKind) { tags[obj] = value; tags[properties(obj)] = value }
 
-    /** 保存对象的字段原值，仅首次改写前捕获（8.6.1）。宿主会复用详情页与 feed 的内存对象，关闭开关时必须逐项还原 */
+    /**
+     * 保存对象的字段原值，仅首次改写前捕获（8.6.1）
+     * 宿主会复用详情页与 feed 的内存对象，关闭开关时必须逐项还原
+     */
     private fun rememberFields(target: Any, productId: String, kind: ResourceKind, names: List<String>) {
         val original = names.mapNotNull { name ->
             Hooks.fields(target.javaClass).firstOrNull { it.name == name && !Modifier.isStatic(it.modifiers) }?.let { field ->
@@ -233,8 +236,8 @@ class ThemeHooks(private val hooks: Hooks) {
         }) }
     }
     /**
-     * 大图标 feed 数据层改写（6.1 #18–#19）。
-     * 推荐流卡片价格直读 `UIProduct`/`LargeIconElement`，不经过 Resource 管线（Resource Hook 天然覆盖不到），故单独改写。
+     * 大图标 feed 数据层改写（6.1 #18–#19）
+     * 推荐流卡片价格直读 `UIProduct`/`LargeIconElement`，不经过 Resource 管线（Resource Hook 天然覆盖不到），故单独改写
      * 价格 ≤0 时宿主格式化自带“免费”分支
      */
     private fun largeIconFeed() {

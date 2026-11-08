@@ -6,8 +6,8 @@ import me.purainity.miuithemeextension.config.ResourcePolicy
 import java.lang.ref.WeakReference
 
 /**
- * 已改写对象的回滚日志（8.6.1）：记录模块主动改写过的宿主对象，并在对应开关关闭时恢复其原始值。
- * 主题壁纸会复用详情页与 feed 的内存对象，仅停止 Hook 不能撤销已写入的“已购买/免费”状态。
+ * 已改写对象的回滚日志（8.6.1）：记录模块主动改写过的宿主对象，并在对应开关关闭时恢复其原始值
+ * 主题壁纸会复用详情页与 feed 的内存对象，仅停止 Hook 不能撤销已写入的“已购买/免费”状态
  * 因此记录必须按对象身份去重、仅首次捕获原值，且不能阻止宿主回收对象
  */
 class ReversibleMutationJournal {

@@ -15,8 +15,8 @@ class XposedEntry : IXposedHookLoadPackage {
         val host = param.packageName
         val loader = param.classLoader ?: return
         if (host == "me.purainity.miuithemeextension") {
-            // 激活自检：不 Hook 任何方法——经应用 classloader 反射置位静态标志（8.7）。
-            // 必须经 param.classLoader 取类：新框架的模块类加载器与宿主 classpath 隔离，直接静态赋值有类身份分裂风险。
+            // 激活自检：不 Hook 任何方法——经应用 classloader 反射置位静态标志（8.7）
+            // 必须经 param.classLoader 取类：新框架的模块类加载器与宿主 classpath 隔离，直接静态赋值有类身份分裂风险
             // 经应用 classloader 反射保证与 UI 读取的是同一个 Class 实例
             try {
                 val status = Class.forName("me.purainity.miuithemeextension.ModuleStatus", false, loader)

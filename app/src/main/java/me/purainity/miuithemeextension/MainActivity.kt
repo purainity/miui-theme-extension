@@ -1,17 +1,17 @@
 package me.purainity.miuithemeextension
 
 import android.content.ComponentName
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.os.Build
 import android.os.Bundle
 import android.view.View
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.materialswitch.MaterialSwitch
 import me.purainity.miuithemeextension.config.ConfigStore
@@ -22,8 +22,9 @@ import me.purainity.miuithemeextension.ui.EnvironmentInfo
 import me.purainity.miuithemeextension.ui.HostPackage
 import me.purainity.miuithemeextension.ui.IconHider
 import me.purainity.miuithemeextension.ui.SettingsRowPresenter
+import me.purainity.miuithemeextension.ui.applySystemBarInsets
 
-/** 模块配置界面（4）：只负责装配与事件接线，行展示逻辑在 SettingsRowPresenter，数据源在 EnvironmentInfo */
+/** 模块配置界面：只负责装配与事件接线，行展示逻辑在 SettingsRowPresenter，数据源在 EnvironmentInfo */
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var store: ConfigStore
@@ -31,14 +32,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var rows: List<SettingRow>
     private var bindingValues = false
 
-    /** 一个设置行 = 公共行布局 binding + 对应的开关与文案资源 */
+    /** 一个设置行 = 公共行布局 binding + 对应的图标与开关文案资源 */
     private data class SettingRow(
         val setting: Setting,
         val row: ItemSettingRowBinding,
+        val icon: Int,
         val label: Int,
         val effect: Int
     ) {
         val container: View get() = row.root
+        val iconView: ImageView get() = row.rowIcon
         val title: TextView get() = row.rowTitle
         val summary: TextView get() = row.rowSummary
         val control: MaterialSwitch get() = row.rowSwitch
@@ -49,31 +52,22 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        binding.root.applySystemBarInsets()
         store = ConfigStore(this)
         iconHider = IconHider(packageManager, ComponentName(this, "$packageName.Launcher"))
-        // 边到边布局：顶栏吃顶部 inset（背景延伸到状态栏后面），滚动区吃左右与底部 inset（内容可滚到导航条后面）
-        ViewCompat.setOnApplyWindowInsetsListener(binding.appBar) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-            view.setPadding(bars.left, bars.top, bars.right, 0)
-            insets
-        }
-        ViewCompat.setOnApplyWindowInsetsListener(binding.contentScroll) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-            view.setPadding(bars.left, 0, bars.right, bars.bottom)
-            insets
-        }
         rows = listOf(
-            SettingRow(Setting.MASTER, binding.masterRow, R.string.master_title, R.string.master_summary),
-            SettingRow(Setting.THIRD_THEME, binding.thirdThemeRow, R.string.thirdTheme_label, R.string.thirdTheme_summary),
-            SettingRow(Setting.RESOURCES, binding.resourcesRow, R.string.resources_label, R.string.resources_summary),
-            SettingRow(Setting.PAID_BADGES, binding.paidBadgesRow, R.string.paidBadges_label, R.string.paidBadges_summary),
-            SettingRow(Setting.LARGE_ICONS, binding.largeIconsRow, R.string.largeIcons_label, R.string.largeIcons_summary),
-            SettingRow(Setting.WIDGETS, binding.widgetsRow, R.string.widgets_label, R.string.widgets_summary),
-            SettingRow(Setting.WIDGET_BADGES, binding.widgetBadgesRow, R.string.widgetBadges_label, R.string.widgetBadges_summary),
-            SettingRow(Setting.ADS, binding.adsRow, R.string.ads_label, R.string.ads_summary),
-            SettingRow(Setting.HIDE_ICON, binding.hideIconRow, R.string.hideIcon_label, R.string.hideIcon_summary)
+            SettingRow(Setting.MASTER, binding.masterRow, R.drawable.ic_power_settings_new, R.string.master_label, R.string.master_summary),
+            SettingRow(Setting.THIRD_THEME, binding.thirdThemeRow, R.drawable.ic_palette, R.string.third_theme_label, R.string.third_theme_summary),
+            SettingRow(Setting.RESOURCES, binding.resourcesRow, R.drawable.ic_lock_open, R.string.resources_label, R.string.resources_summary),
+            SettingRow(Setting.PAID_BADGES, binding.paidBadgesRow, R.drawable.ic_money_off, R.string.paid_badges_label, R.string.paid_badges_summary),
+            SettingRow(Setting.LARGE_ICONS, binding.largeIconsRow, R.drawable.ic_apps, R.string.large_icons_label, R.string.large_icons_summary),
+            SettingRow(Setting.WIDGETS, binding.widgetsRow, R.drawable.ic_widgets, R.string.widgets_label, R.string.widgets_summary),
+            SettingRow(Setting.WIDGET_BADGES, binding.widgetBadgesRow, R.drawable.ic_money_off, R.string.widget_badges_label, R.string.widget_badges_summary),
+            SettingRow(Setting.ADS, binding.adsRow, R.drawable.ic_ad_units, R.string.ads_label, R.string.ads_summary),
+            SettingRow(Setting.HIDE_ICON, binding.hideIconRow, R.drawable.ic_visibility_off, R.string.hide_icon_label, R.string.hide_icon_summary)
         )
         rows.forEach { row ->
+            row.iconView.setImageResource(row.icon)
             row.title.setText(row.label)
             row.container.setOnClickListener { if (row.control.isEnabled) row.control.performClick() }
             row.control.setOnCheckedChangeListener { _, checked ->
@@ -92,6 +86,13 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+        // 底部关于入口
+        binding.aboutRow.icon.setImageResource(R.drawable.ic_info)
+        binding.aboutRow.title.setText(R.string.about)
+        binding.aboutRow.subtitle.visibility = View.GONE
+        binding.aboutRow.trailingIcon.setImageResource(R.drawable.ic_chevron)
+        binding.aboutRow.root.isFocusable = true
+        binding.aboutRow.root.setOnClickListener { startActivity(Intent(this, AboutActivity::class.java)) }
         renderEnvironment()
     }
 
@@ -101,7 +102,7 @@ class MainActivity : AppCompatActivity() {
         renderActivation()
     }
 
-    /** 版本信息卡片（4.2）：标签与内容按声明顺序写入公共信息行 */
+    /** 版本信息卡片：标签与内容按声明顺序写入公共信息行 */
     private fun renderEnvironment() {
         val info = EnvironmentInfo(
             resolve = { getString(it) },
@@ -128,18 +129,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * 框架 API 版本：由模块加载入口读取 XposedBridge.getXposedVersion() 并记入 ModuleStatus（8.7）
+     * 框架 API 版本：由模块加载入口读取 XposedBridge.getXposedVersion() 并记入 ModuleStatus
      * 应用 classloader 反射不到框架类——类仅存在于模块类加载器，UI 侧直接 Class.forName 必失败
      * 未记录显示“未检测到”
      */
     private fun probeXposedApiVersion(): String? = ModuleStatus.xposedApiVersion()?.toString()
 
-    /** 重新渲染全部开关行：勾选值、可交互性与说明文案（3.2 联动规则） */
+    /** 重新渲染全部开关行：勾选值、可交互性与说明文案 */
     private fun renderSettings() {
         bindingValues = true
         try {
             val config = store.read()
-            // 图标设置被外部修改时以组件实际状态为准回写存储（4.6 自愈）
+            // 图标设置被外部修改时以组件实际状态为准回写存储
             val hidden = iconHider.hidden()
             if (hidden != config[Setting.HIDE_ICON]) store.write(Setting.HIDE_ICON, hidden)
             rows.forEach { row ->
@@ -152,7 +153,7 @@ class MainActivity : AppCompatActivity() {
         } finally { bindingValues = false }
     }
 
-    /** 激活状态卡片（4.1）：图标、容器颜色与文案随激活状态切换 */
+    /** 激活状态卡片：图标、容器颜色与文案随激活状态切换 */
     private fun renderActivation() {
         val active = ModuleStatus.isActive()
         val container = MaterialColors.getColor(binding.activationCard, if (active)
@@ -172,9 +173,7 @@ class MainActivity : AppCompatActivity() {
     /** 宿主包版本查询：未安装返回 null，其余异常交由上层按“无法读取”处理 */
     private fun hostPackage(pkg: String): HostPackage? = try {
         val info = packageManager.getPackageInfo(pkg, 0)
-        val code = if (Build.VERSION.SDK_INT >= 28) info.longVersionCode
-        else @Suppress("DEPRECATION") info.versionCode.toLong()
-        HostPackage(info.versionName, code)
+        HostPackage(info.versionName, info.longVersionCode)
     } catch (missing: PackageManager.NameNotFoundException) { null }
 
     /** 通过 getprop 读取系统属性；失败返回空字符串 */

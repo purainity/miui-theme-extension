@@ -8,8 +8,8 @@ class PolicyTest {
     @Test fun defaultsAndDependencies() {
         val off = ModuleConfig()
         assertTrue(off[Setting.PAID_BADGES]); assertTrue(off[Setting.WIDGET_BADGES])
-        // 允许使用第三方主题默认开启（使用性功能、不修改价格），其余功能开关默认关闭
-        assertTrue(off[Setting.THIRD_THEME])
+        // 允许使用第三方主题与隐藏主题商店广告默认开启（使用性与纯展示层功能），其余解锁类开关默认关闭
+        assertTrue(off[Setting.THIRD_THEME]); assertTrue(off[Setting.ADS])
         Setting.entries.forEach { assertFalse(off.enabled(it)) }
         val config = ModuleConfig(values = mapOf(Setting.MASTER to true, Setting.WIDGETS to true))
         assertTrue(config.enabled(Setting.WIDGET_BADGES))

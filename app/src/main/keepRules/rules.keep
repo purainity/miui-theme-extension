@@ -11,5 +11,19 @@
 #   public *;
 #}
 
--keep class me.purainity.miuithemeextension.hook.XposedEntry { *; }
--keep class me.purainity.miuithemeextension.ModuleStatus { *; }
+# Xposed 框架按名称加载入口类并实例化，通过接口回调加载方法
+-keep class me.purainity.miuithemeextension.hook.XposedEntry {
+    public <init>();
+    public void handleLoadPackage(de.robv.android.xposed.callbacks.XC_LoadPackage$LoadPackageParam);
+}
+
+# 应用类加载器按名称反射调用激活状态的静态方法
+-keep class me.purainity.miuithemeextension.ModuleStatus {
+    public static void markActive();
+    public static void reportXposedApi(int);
+}
+
+# 兼容图标项目曾出现的 release 启动 IllegalAccessError，待完整实机验证后再评估收窄或移除
+# 保留存活的 Kotlin 类名，未使用的类仍可被移除
+-keepnames class kotlin.**
+-keepnames class kotlinx.**

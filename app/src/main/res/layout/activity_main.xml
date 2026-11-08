@@ -1,50 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 单 Activity 配置界面：MD3 大标题折叠顶栏 + 激活卡片 → 版本信息卡片 → 总开关卡片 → 五组功能开关（角标开关跟随对应解锁开关分组） -->
-<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- 模块配置界面：顶栏 + 激活状态卡 → 版本信息卡 → 总开关卡 → 五组功能开关（角标开关跟随对应解锁开关分组）→ 关于入口 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/main"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:orientation="vertical">
 
-    <!-- MD3 大标题应用栏：展开 152dp（HeadlineSmall），滚动收起为 64dp 工具栏（TitleLarge） -->
-    <!-- 未滚动为 surface，滚动后为 surfaceContainer——官方 M3 样式自带 liftOnScroll（0dp 海拔，纯色调区分） -->
-    <!-- 顶部 insets 由代码设置 padding，背景延伸到状态栏后面 -->
-    <com.google.android.material.appbar.AppBarLayout
-        android:id="@+id/appBar"
-        style="@style/Widget.Material3.AppBarLayout"
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        app:liftOnScrollTargetViewId="@id/contentScroll">
+        android:layout_height="?attr/actionBarSize"
+        app:title="@string/app_name" />
 
-        <com.google.android.material.appbar.CollapsingToolbarLayout
-            android:id="@+id/collapsingToolbar"
-            android:layout_width="match_parent"
-            android:layout_height="?attr/collapsingToolbarLayoutLargeSize"
-            app:collapsedTitleTextAppearance="@style/TextAppearance.Material3.TitleLarge"
-            app:expandedTitleGravity="bottom"
-            app:expandedTitleMarginBottom="16dp"
-            app:expandedTitleMarginStart="16dp"
-            app:expandedTitleTextAppearance="@style/TextAppearance.Material3.HeadlineSmall"
-            app:layout_scrollFlags="scroll|exitUntilCollapsed"
-            app:title="@string/app_name"
-            app:titleEnabled="true">
-
-            <com.google.android.material.appbar.MaterialToolbar
-                android:id="@+id/toolbar"
-                android:layout_width="match_parent"
-                android:layout_height="?attr/actionBarSize"
-                app:layout_collapseMode="pin" />
-        </com.google.android.material.appbar.CollapsingToolbarLayout>
-    </com.google.android.material.appbar.AppBarLayout>
-
-    <!-- 滚动内容：左右与底部 insets 由代码设置 padding，内容可滚动到导航条后面 -->
     <androidx.core.widget.NestedScrollView
         android:id="@+id/contentScroll"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:clipToPadding="false"
-        android:fillViewport="true"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+        android:fillViewport="true">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -55,60 +30,10 @@
             android:paddingEnd="16dp"
             android:paddingBottom="24dp">
 
-            <!-- 激活状态卡片：状态图标垂直居中 + 两行文字；容器颜色区分激活状态 -->
+            <!-- 激活状态卡片：状态图标 + 两行文字，容器颜色与文字颜色随激活状态切换 -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/activationCard"
-                style="@style/StatusCard"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp">
-
-                <androidx.constraintlayout.widget.ConstraintLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:padding="16dp">
-
-                    <ImageView
-                        android:id="@+id/activationIcon"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:contentDescription="@string/inactive"
-                        android:src="@drawable/ic_status_inactive"
-                        app:layout_constraintBottom_toBottomOf="parent"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent"
-                        app:tint="?attr/colorOnPrimaryContainer" />
-
-                    <com.google.android.material.textview.MaterialTextView
-                        android:id="@+id/activation"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="16dp"
-                        android:text="@string/inactive"
-                        android:textAppearance="?attr/textAppearanceTitleMedium"
-                        android:textColor="?attr/colorOnPrimaryContainer"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintStart_toEndOf="@id/activationIcon"
-                        app:layout_constraintTop_toTopOf="parent" />
-
-                    <com.google.android.material.textview.MaterialTextView
-                        android:id="@+id/activationHint"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="@string/inactive_hint"
-                        android:textAppearance="?attr/textAppearanceBodyMedium"
-                        android:textColor="?attr/colorOnPrimaryContainer"
-                        app:layout_constraintBottom_toBottomOf="parent"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintStart_toStartOf="@id/activation"
-                        app:layout_constraintTop_toBottomOf="@id/activation" />
-                </androidx.constraintlayout.widget.ConstraintLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- 版本信息卡片 -->
-            <com.google.android.material.card.MaterialCardView
-                style="@style/SettingsCard"
+                style="@style/Widget.MiuiThemeExtension.StatusCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp">
@@ -116,8 +41,54 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
                     android:padding="16dp">
+
+                    <ImageView
+                        android:id="@+id/activationIcon"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_marginEnd="16dp"
+                        android:contentDescription="@string/inactive"
+                        android:src="@drawable/ic_status_inactive"
+                        app:tint="?attr/colorOnPrimaryContainer" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/activation"
+                            style="@style/TextAppearance.Material3.BodyLarge"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textColor="?attr/colorOnPrimaryContainer" />
+
+                        <TextView
+                            android:id="@+id/activationHint"
+                            style="@style/TextAppearance.Material3.BodyMedium"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:textColor="?attr/colorOnPrimaryContainer" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 版本信息卡片 -->
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.MiuiThemeExtension.SettingsCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
 
                     <include android:id="@+id/moduleVersionRow" layout="@layout/item_info_row" />
                     <include android:id="@+id/deviceModelRow" layout="@layout/item_info_row" />
@@ -133,7 +104,7 @@
             <!-- 总开关卡片：独立卡片，位于设置区最上方 -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/masterCard"
-                style="@style/SettingsCard"
+                style="@style/Widget.MiuiThemeExtension.SettingsCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
 
@@ -141,18 +112,18 @@
             </com.google.android.material.card.MaterialCardView>
 
             <!-- 分组：主题资源（解锁 + 角标跟随同组） -->
-            <com.google.android.material.textview.MaterialTextView
+            <TextView
+                style="@style/TextAppearance.Material3.TitleSmall"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="8dp"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:text="@string/resources_title"
-                android:textAppearance="@style/SettingsSection" />
+                android:text="@string/section_resources"
+                android:textColor="?attr/colorPrimary" />
 
             <com.google.android.material.card.MaterialCardView
-                style="@style/SettingsCard"
+                style="@style/Widget.MiuiThemeExtension.SettingsCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
 
@@ -167,19 +138,19 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- 分组：大图标——独立解锁管线，无角标开关，feed 卡片价格由数据层 Hook 归零（6.1 #18–#19） -->
-            <com.google.android.material.textview.MaterialTextView
+            <!-- 分组：大图标——独立解锁管线，无角标开关，feed 卡片价格由数据层 Hook 归零 -->
+            <TextView
+                style="@style/TextAppearance.Material3.TitleSmall"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="8dp"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:text="@string/largeIcons_title"
-                android:textAppearance="@style/SettingsSection" />
+                android:text="@string/section_large_icons"
+                android:textColor="?attr/colorPrimary" />
 
             <com.google.android.material.card.MaterialCardView
-                style="@style/SettingsCard"
+                style="@style/Widget.MiuiThemeExtension.SettingsCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
 
@@ -193,18 +164,18 @@
             </com.google.android.material.card.MaterialCardView>
 
             <!-- 分组：小组件 -->
-            <com.google.android.material.textview.MaterialTextView
+            <TextView
+                style="@style/TextAppearance.Material3.TitleSmall"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="8dp"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:text="@string/widgets_title"
-                android:textAppearance="@style/SettingsSection" />
+                android:text="@string/section_widgets"
+                android:textColor="?attr/colorPrimary" />
 
             <com.google.android.material.card.MaterialCardView
-                style="@style/SettingsCard"
+                style="@style/Widget.MiuiThemeExtension.SettingsCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
 
@@ -219,18 +190,18 @@
             </com.google.android.material.card.MaterialCardView>
 
             <!-- 分组：广告 -->
-            <com.google.android.material.textview.MaterialTextView
+            <TextView
+                style="@style/TextAppearance.Material3.TitleSmall"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="8dp"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:text="@string/ads_title"
-                android:textAppearance="@style/SettingsSection" />
+                android:text="@string/section_ads"
+                android:textColor="?attr/colorPrimary" />
 
             <com.google.android.material.card.MaterialCardView
-                style="@style/SettingsCard"
+                style="@style/Widget.MiuiThemeExtension.SettingsCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
 
@@ -244,18 +215,18 @@
             </com.google.android.material.card.MaterialCardView>
 
             <!-- 分组：其他设置 -->
-            <com.google.android.material.textview.MaterialTextView
+            <TextView
+                style="@style/TextAppearance.Material3.TitleSmall"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="8dp"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:text="@string/other_title"
-                android:textAppearance="@style/SettingsSection" />
+                android:text="@string/section_other"
+                android:textColor="?attr/colorPrimary" />
 
             <com.google.android.material.card.MaterialCardView
-                style="@style/SettingsCard"
+                style="@style/Widget.MiuiThemeExtension.SettingsCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
 
@@ -267,6 +238,16 @@
                     <include android:id="@+id/hideIconRow" layout="@layout/item_setting_row" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
+
+            <!-- 关于入口：底部独立卡片 -->
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.MiuiThemeExtension.SettingsCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp">
+
+                <include android:id="@+id/aboutRow" layout="@layout/item_navigation" />
+            </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+</LinearLayout>

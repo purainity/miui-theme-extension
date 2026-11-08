@@ -3,7 +3,10 @@ package me.purainity.miuithemeextension.hook
 import java.lang.ref.ReferenceQueue
 import java.lang.ref.WeakReference
 
-/** 身份弱引用映射（8.1）：宿主模型类可能实现值相等。标签必须跟随对象本身，绝不跟随另一个值相等的模型 */
+/**
+ * 身份弱引用映射（8.1）：宿主模型类可能实现值相等
+ * 标签必须跟随对象本身，绝不跟随另一个值相等的模型
+ */
 class WeakIdentityMap<V> {
     private val queue = ReferenceQueue<Any>()
     // 身份键：以 identityHashCode 定位，目标被回收后自然失配

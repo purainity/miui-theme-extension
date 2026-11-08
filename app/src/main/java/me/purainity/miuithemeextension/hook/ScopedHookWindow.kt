@@ -1,6 +1,9 @@
 package me.purainity.miuithemeextension.hook
 
-/** 瞬时 DRM 窗口（8.3）：每进程安装、按线程授权。每次调用（含未启用的嵌套调用）都会压入一帧 */
+/**
+ * 瞬时 DRM 窗口（8.3）：每进程安装、按线程授权
+ * 每次调用（含未启用的嵌套调用）都会压入一帧
+ */
 class ScopedHookWindow<T>(private val install: () -> List<() -> Unit>, private val onError: (Exception) -> Unit) {
     /** 一次调用压入的一帧：携带窗口值与该帧是否租借了全局 Hook */
     class Frame<T> internal constructor(val value: T, internal val leased: Boolean)

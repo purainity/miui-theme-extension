@@ -4,8 +4,8 @@ import me.purainity.miuithemeextension.config.ModuleConfig
 import me.purainity.miuithemeextension.config.Setting
 
 /**
- * 设置行的展示逻辑（纯逻辑，便于单元测试）。
- * 与 [ModuleConfig.interactive] 配合，负责勾选值；禁用行不追加提示文案（4.5）
+ * 设置行的展示逻辑（纯逻辑，便于单元测试）
+ * 与 [ModuleConfig.interactive] 配合，负责勾选值；禁用行不追加提示文案
  */
 object SettingsRowPresenter {
 

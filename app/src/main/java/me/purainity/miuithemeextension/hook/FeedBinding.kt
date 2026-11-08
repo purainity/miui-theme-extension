@@ -4,14 +4,14 @@ import java.lang.reflect.Field
 import java.lang.reflect.Modifier
 
 /**
- * 大图标 feed 绑定方法的“商品载体”定位（6.1 #19）。
- * 推荐流卡片（LargeIconHomeCardViewHolder 等）的绑定方法参数形态有两种：直接传 `UIProduct`，或传持有 `UIProduct` 实例字段的对象参数（如 LargeIconProductElement 包装元素）。
+ * 大图标 feed 绑定方法的“商品载体”定位（6.1 #19）
+ * 推荐流卡片（LargeIconHomeCardViewHolder 等）的绑定方法参数形态有两种：直接传 `UIProduct`，或传持有 `UIProduct` 实例字段的对象参数（如 LargeIconProductElement 包装元素）
  * 方法名随宿主混淆变化，因此按参数结构匹配，不出现任何硬编码混淆名（5.2）
  */
 object FeedBinding {
     /**
-     * 返回商品载体：参数下标 + 取值字段（字段为 null 表示参数本身即商品对象）。
-     * 匹配规则：恰一个 `UIProduct` 直参，或恰一个非 int 对象参数且其类声明了 `UIProduct` 实例字段，其余参数仅允许 int/Integer。
+     * 返回商品载体：参数下标 + 取值字段（字段为 null 表示参数本身即商品对象）
+     * 匹配规则：恰一个 `UIProduct` 直参，或恰一个非 int 对象参数且其类声明了 `UIProduct` 实例字段，其余参数仅允许 int/Integer
      * 不匹配返回 null
      */
     fun productSlot(params: Array<Class<*>>, product: Class<*>): Pair<Int, Field?>? {
