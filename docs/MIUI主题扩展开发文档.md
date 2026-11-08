@@ -1,4 +1,4 @@
-# MIUI 主题扩展 · 项目规划
+# MIUI 主题扩展 · 开发文档
 
 ## 1. 项目定位
 
@@ -7,7 +7,7 @@
 | 项 | 值 |
 | --- | --- |
 | 包名 | `me.purainity.miuithemeextension` |
-| 语言 / 构建 | Kotlin；minSdk 24，targetSdk 37 |
+| 语言 / 构建 | Kotlin；minSdk 28，targetSdk 37（技术选型见第 2 节） |
 | Xposed 入口 | `me.purainity.miuithemeextension.hook.XposedEntry`，仅实现 `IXposedHookLoadPackage`，不使用 zygote 入口 |
 | 推荐作用域 | manifest 通过 `xposedscope` 静态声明下方四个宿主进程 |
 | 目标系统 | MIUI 12–14 及更新的 MIUI 版本 |
@@ -24,37 +24,58 @@
 
 ---
 
-## 2. 技术红线
+## 2. 技术选型
 
-**必须遵守：**
+### 2.1 技术栈
 
-- 业务 Hook 只用 legacy Xposed API（`de.robv.android.xposed.*`，compileOnly 引入）；
-- UI 使用 Kotlin + XML Views + ViewBinding 与 Material Design 3 控件；
-- 混淆对抗使用纯 Kotlin 实现的 DEX 只读解析（机制见 8.4），不依赖任何运行时特征检索库。
+| 项 | 选型 |
+|---|---|
+| 语言 | 纯 Kotlin，单模块 `:app` |
+| UI | XML Views + ViewBinding + Material Design 3 控件 |
+| minSdk | 28（Android 9） |
+| targetSdk | 37 |
+| Hook API | 业务 Hook 只用 legacy Xposed API（`de.robv.android.xposed.*`，compileOnly 引入） |
+| 混淆对抗 | 纯 Kotlin 实现的 DEX 只读解析（机制见 8.4），不依赖任何运行时特征检索库 |
 
-**禁止：**
+### 2.2 选型依据
 
-- 禁止 DataBinding；
-- 禁止 `com.android.support` 旧支持库；
-- 禁止引入任何携带 so 原生库的依赖；
-- 禁止引入 libxposed（任何形式，含 100/101/102 Hook API 与 Service Provider）；
-- 禁止经典 `XSharedPreferences` 与 New XSharedPreferences（NSP）两种配置读取方案，配置跨进程同步一律走 ContentProvider（选型依据见 2.1）；
-- 禁止任何需要 root 权限的功能；
-- 文案禁止出现 "HyperOS"，一律表述为 MIUI。
+**minSdk——取 28（Android 9）：**
 
-### 2.1 选型依据（红线背后的架构决策）
+- MIUI 12 的设备与 LSPosed / Vector 框架下限为 Android 9，取 28 即覆盖全部目标宿主
 
-**API 线——只走 legacy（rovo89 XposedBridge）：**
+**Hook API——只走 legacy（rovo89 XposedBridge）：**
 
-- legacy API 是唯一在 LSPosed 官方 1.x（止于 1.9.2）、2.x（2.0.0+）与 Vector 分支全线上受支持的模块 API：官方 2.0.1 移除 libxposed API 100 支持并明确"基于 rovo89 Xposed API 的模块不受影响"；
+- legacy API 是唯一在 LSPosed 官方 1.x（止于 1.9.2）、2.x（2.0.0+）与 Vector 分支全线上受支持的模块 API：官方 2.0.1 移除 libxposed API 100 支持并明确“基于 rovo89 Xposed API 的模块不受影响”；
 - libxposed Modern API 存在 100→101→102 断裂（100 从未正式发布即被 2.0.1 移除，102 引入热重载），且 2.0.3 起禁止交叉调用（legacy 模块不得调用 libxposed API；targetApiVersion ≥ 102 的模块不得调用 legacy API）——单 APK 无法用 Modern 覆盖全部框架版本；
 - 官方点名的工程禁忌：不得硬编码调用栈深度做判断、不得用调用栈探测框架实现（2.x 责任链模式下调用栈变深，官方已点名因此损坏的模块案例）；运行时框架版本判断只走 `XposedBridge.getXposedVersion()`。
 
-**配置线——ContentProvider 而非 XSharedPreferences：**
+**配置读取——ContentProvider 而非 XSharedPreferences：**
 
 - 经典 `XSharedPreferences` 跨应用读取在 LSPosed 1.x 上受 SELinux 限制不可靠（官方自 v2.0.0 才正式支持，且无变更通知能力）；
-- New XSharedPreferences（NSP）由声明 `xposedminversion ≥ 93` 或 `xposedsharedprefs` meta-data 启用，LSPosed 2.2.0 起对"声明 NSP 且存在 others 可读 xml"的模块显示废弃警告，官方计划 2.3.0 移除——因此 manifest 锁定 `xposedminversion=82` 且不声明 `xposedsharedprefs`，这也是官方给出的消除警告方式之一；
+- New XSharedPreferences（NSP）由声明 `xposedminversion ≥ 93` 或 `xposedsharedprefs` meta-data 启用，LSPosed 2.2.0 起对“声明 NSP 且存在 others 可读 xml”的模块显示废弃警告，官方计划 2.3.0 移除——因此 manifest 锁定 `xposedminversion=82` 且不声明 `xposedsharedprefs`，这也是官方给出的消除警告方式之一；
 - 导出只读 ContentProvider 走标准 Android IPC：不依赖任何框架特有机制、全框架版本可用，且具备变更通知能力；provider 由系统按需拉起（无需模块 app 先行运行）。同步机制详见 8.6。
+
+**混淆对抗——纯 Kotlin DEX 只读解析：**
+
+- 主题壁纸的 DRM 业务方法与大图标任务方法已被混淆且每次发版改名，须按方法特征在 DEX 内定位，不依赖任何运行时特征检索库（机制见 8.4）
+
+### 2.3 硬性红线
+
+| 项 | 禁止 |
+|---|---|
+| Hook API | libxposed（任何形式，含 100/101/102 Hook API 与 Service Provider） |
+| 配置读取 | 经典 `XSharedPreferences` 与 New XSharedPreferences（NSP），配置跨进程同步一律走 ContentProvider（选型依据见 2.2） |
+| UI 框架 | DataBinding |
+| 依赖 | `com.android.support.*` 旧支持库；任何携带 so 原生库的依赖 |
+| 权限 | 任何需要 root 权限的功能 |
+| 文案 | “HyperOS”，一律表述为 MIUI |
+
+### 2.4 Release 构建与优化
+
+- Release 通过 `optimization.enable = true` 启用 R8 代码与资源优化，不限制 `packageScope`，优化范围覆盖整个应用及其依赖；默认 Android 平台保留规则与依赖提供的规则仍由构建工具合并
+- 应用自定义规则放在 `app/src/main/keepRules/rules.keep`，适用于包含 main 源集且启用 R8 的变体；其中 `XposedEntry` 由 `xposed_init` 按类名加载并实例化，框架通过接口回调 `handleLoadPackage`；`ModuleStatus` 的 `markActive` 和 `reportXposedApi` 由模块入口经应用 classloader 按名反射调用，须保留入口类及其无参构造方法和回调方法，以及状态类和上述两个静态方法，无须保留两个类的所有成员
+- 参照图标项目此前遇到的 release 启动 `IllegalAccessError`，暂时保留 `kotlin.**` 与 `kotlinx.**` 存活类的名称作为兼容防护；本项目尚未证实存在同一问题，未使用的类仍可被移除。待经过本项目完整的 release 实机验证后，再评估收窄或移除这两条规则
+- 每次调整优化范围或保留规则后，须构建 release，并在实际环境验证应用启动、Xposed 模块激活和主要 Hook 功能；构建成功和 APK 静态检查不能代替实机验证
 
 ---
 
@@ -71,7 +92,7 @@
 | `unlock_large_icons` | false | 解锁付费大图标 | 付费大图标可下载应用，商店 feed 卡片价格显示为免费；另含应用任务授权文件（8.5） |
 | `unlock_paid_widgets` | false | 解锁付费小组件 | 智能助理/桌面/商店中付费 MAML 小组件可下载、可添加；超级壁纸按 MAML 资源链路适配 |
 | `hide_widget_pay_badges` | true | 隐藏小组件付费标识 | 智能助理组件卡片不再显示付费角标（仅 UI 层） |
-| `hide_theme_ads` | false | 隐藏主题商店广告 | 广告判定无效、视频广告失效、广告卡片不占位 |
+| `hide_theme_ads` | true | 隐藏主题商店广告 | 广告判定无效、视频广告失效、广告卡片不占位 |
 | `hide_launcher_icon` | false | 隐藏模块图标 | 隐藏桌面图标（默认显示）；与激活状态无关 |
 
 ### 3.2 联动规则
@@ -112,22 +133,105 @@
 
 ## 4. 配置界面
 
-单 Activity 布局，自上而下依次为：
+单 Activity 布局，界面遵循 Material Design 3：TopAppBar（仅标题“MIUI 主题扩展”，无菜单动作）+ 纵向滚动内容，系统栏 edge-to-edge、内容自动 inset；每个功能分组一张 Filled 卡片（surfaceContainer 色），卡片上方为分组小标题（TitleSmall，primary 色）；设置行为双行列表行——行首 Material Symbols 线性图标（24dp，primary 色，装饰性不朗读）+ 标题 + 一句效果说明 + `MaterialSwitch`，整行可点击（浮层涟漪）。
 
-1. **激活状态卡片**。显示当前激活状态：激活时提示"模块已激活 / 首次启用需重启手机，此后开关修改即时生效"；未激活时提示"模块未激活 / 请先在 LSPosed 中启用模块并勾选作用域，再重启手机"。判定方式见 8.7。
-2. **版本信息卡片**。每项两行：标签在上、内容在下，内容可长按选中复制。显示项：模块版本（versionName + versionCode）、设备型号（`ro.product.marketname` 与 device，取不到回退 `Build.MODEL`）、系统版本（Android 版本 + API）、MIUI 版本（`Build.VERSION.INCREMENTAL`）、Xposed API 版本（由模块加载入口读取 `XposedBridge.getXposedVersion()` 并随激活标志记入 `ModuleStatus`，UI 读取记录值；未加载显示"未检测到"）、三个宿主版本（未安装显示"未安装"，读取失败显示"无法读取"）。包可见性查询仅用于版本展示。
-3. **总开关卡片**。独立卡片，位于设置区最上方；关闭时下方所有开关禁用。
-4. **功能分组卡片**。五组：
-   - 主题资源：允许使用第三方主题、解锁付费主题资源、隐藏主题付费标识；
-   - 大图标：解锁付费大图标；
-   - 小组件：解锁付费小组件、隐藏小组件付费标识；
-   - 广告：隐藏主题商店广告；
-   - 其他设置：隐藏模块桌面图标。
-   每行为"标题 + 一句效果说明 + 开关"，整行可点击；角标开关跟随对应解锁开关分组，大图标无角标开关——feed 卡片价格由数据层 Hook 直接归零（6.1 #18–#19），无需 UI 层角标。
-5. **禁用态说明**。被依赖的子开关禁用时原生禁用、整行不可点击，不追加额外说明文案。
-6. **图标隐藏**。通过指向主 Activity 的 `activity-alias` 启停实现（`DONT_KILL_APP`）：设置失败回滚存储值并提示；每次回到界面时以组件实际状态回写存储（外部修改自愈）；隐藏后仍可从 LSPosed 进入设置；说明文字提醒在 LSPosed 中关闭"强制显示桌面图标"。
+```
+┌────────────────────────────────────────┐
+│ TopAppBar：MIUI 主题扩展                │  ← 无菜单按钮
+├────────────────────────────────────────┤
+│ 〔激活状态卡〕状态图标 + 状态 + 提示     │
+│ ┌────────────────────────────────────┐ │
+│ │ 版本信息卡（八项信息行）            │ │
+│ └────────────────────────────────────┘ │
+│ ┌────────────────────────────────────┐ │
+│ │ ▸ 总开关                 [Switch]   │ │
+│ └────────────────────────────────────┘ │
+│ 主题资源                                │
+│ ┌────────────────────────────────────┐ │
+│ │ ▸ 允许使用第三方主题      [Switch]   │ │
+│ │ ▸ 解锁付费主题资源        [Switch]  │ │
+│ │ ▸ 隐藏主题付费标识         [Switch]  │ │
+│ └────────────────────────────────────┘ │
+│ 大图标                                  │
+│ ┌────────────────────────────────────┐ │
+│ │ ▸ 解锁付费大图标          [Switch]  │ │
+│ └────────────────────────────────────┘ │
+│ 小组件                                  │
+│ ┌────────────────────────────────────┐ │
+│ │ ▸ 解锁付费小组件          [Switch]  │ │
+│ │ ▸ 隐藏小组件付费标识       [Switch]  │ │
+│ └────────────────────────────────────┘ │
+│ 广告                                    │
+│ ┌────────────────────────────────────┐ │
+│ │ ▸ 隐藏主题商店广告         [Switch]  │ │
+│ └────────────────────────────────────┘ │
+│ 其他设置                                │
+│ ┌────────────────────────────────────┐ │
+│ │ ▸ 隐藏模块桌面图标        [Switch]  │ │
+│ └────────────────────────────────────┘ │
+│ ┌────────────────────────────────────┐ │
+│ │ ▸ 关于                             │ │
+│ └────────────────────────────────────┘ │
+└────────────────────────────────────────┘
+```
 
-其他约定：文案统一使用"主题壁纸 / 智能助理 / 系统桌面 / MIUI 版本"称谓；字符串末尾不加句号；界面为 Material Design 3 风格——顶部为大标题折叠应用栏（展开 152dp、滚动收起为 64dp 工具栏，未滚动为 surface 色、滚动后为 surfaceContainer 色），设置行按 MD3 双行列表规范排布并以浮层涟漪提供触摸反馈，边到边布局下顶栏背景延伸到状态栏后面；激活状态图标的无障碍描述与当前激活文案保持同步。
+### 4.1 激活状态卡
+
+显示当前激活状态：激活时提示“模块已激活 / 首次启用需重启手机，此后开关修改即时生效”；未激活时提示“模块未激活 / 请先在 LSPosed 中启用模块并勾选作用域，再重启手机”。容器与文字颜色随状态切换（激活 primaryContainer 系、未激活 errorContainer 系）。判定方式见 8.7。
+
+### 4.2 版本信息卡
+
+每项两行：标签在上、内容在下，内容可长按选中复制。显示项：模块版本（versionName + versionCode）、设备型号（`ro.product.marketname` 与 device，取不到回退 `Build.MODEL`）、系统版本（Android 版本 + API）、MIUI 版本（`Build.VERSION.INCREMENTAL`）、Xposed API 版本（由模块加载入口读取 `XposedBridge.getXposedVersion()` 并随激活标志记入 `ModuleStatus`，UI 读取记录值；未加载显示“未检测到”）、三个宿主版本（未安装显示“未安装”，读取失败显示“无法读取”）。包可见性查询仅用于版本展示。
+
+### 4.3 总开关卡
+
+独立卡片，位于设置区最上方；关闭时下方所有开关禁用。
+
+### 4.4 功能分组卡
+
+五组，每组一张卡片：
+
+| 分组 | 设置行 |
+| --- | --- |
+| 主题资源 | 允许使用第三方主题、解锁付费主题资源、隐藏主题付费标识 |
+| 大图标 | 解锁付费大图标 |
+| 小组件 | 解锁付费小组件、隐藏小组件付费标识 |
+| 广告 | 隐藏主题商店广告 |
+| 其他设置 | 隐藏模块桌面图标 |
+
+各设置行的行首图标（官方 Material Symbols Outlined 24px，受 `MaterialSymbolsIntegrityTest` 校验）：
+
+| 设置行 | 图标 |
+| --- | --- |
+| 总开关 | `power_settings_new` |
+| 允许使用第三方主题 | `palette` |
+| 解锁付费主题资源 | `lock_open` |
+| 隐藏主题付费标识 / 隐藏小组件付费标识 | `money_off` |
+| 解锁付费大图标 | `apps` |
+| 解锁付费小组件 | `widgets` |
+| 隐藏主题商店广告 | `ad_units` |
+| 隐藏模块桌面图标 | `visibility_off` |
+
+角标开关跟随对应解锁开关分组，大图标无角标开关——feed 卡片价格由数据层 Hook 直接归零（6.1 #18–#19），无需 UI 层角标。
+
+### 4.5 禁用态
+
+被依赖的子开关禁用时原生禁用、整行不可点击，不追加额外说明文案。
+
+### 4.6 图标隐藏
+
+通过指向主 Activity 的 `activity-alias` 启停实现（`DONT_KILL_APP`）：设置失败回滚存储值并提示；每次回到界面时以组件实际状态回写存储（外部修改自愈）；隐藏后仍可从 LSPosed 进入设置；说明文字提醒在 LSPosed 中关闭“强制显示桌面图标”。
+
+### 4.7 关于入口与关于页
+
+配置界面底部独立卡片提供“关于”入口（info 图标 + chevron）。关于页（`AboutActivity`，顶栏带返回箭头）自上而下：
+
+- **页头卡**：应用图标 + 应用名 + 版本号（`版本 {versionName}（{longVersionCode}）`）
+- **项目信息卡**：本项目 GitHub（code 图标）与作者（person 图标），行点击打开对应链接
+- **致谢卡**：对本模块设计有直接参考意义的既有项目——Miui 主题破解（yuk、YuKongA、linqiqi）、PersonalizeHyperTheme / FuckMiuiThemeManager（tangjin）、MIUI 扩展（com.miui.android.t）
+- **开源许可卡**：以项目为单位列出直接依赖、传递依赖与随应用分发的资源（Material Symbols、AndroidX、View Binding、Material Components、Kotlin、kotlinx.coroutines、kotlinx.serialization、JetBrains Annotations、Guava、Error Prone、JSpecify、Xposed API），每项三行——项目名 / 作者 · 协议 / 项目主页链接（一律主页根地址，不带版本路径），整行点击打开链接；行内图标为官方 Material Symbols Outlined，受 `MaterialSymbolsIntegrityTest` 校验
+
+其他约定：文案统一使用“主题壁纸 / 智能助理 / 系统桌面 / MIUI 版本”称谓；字符串末尾不加句号；激活状态图标的无障碍描述与当前激活文案保持同步。
 
 ---
 
@@ -161,18 +265,18 @@
 | 3 | 同上 → `getProductPrice()` | 按名，`()I` | before | `setResult(0)` | 按类别 |
 | 4 | 同上 → `setProductPrice(int)` | 按名，`(I)V` | before | `args[0]=0` | 按类别 |
 | 5 | `detail.theme.model.OnlineResourceDetail` → `toResource()` | 按名，返回 `Resource`，全重载 | after | 详情对象写 `bought=true`、`productPrice=0`、`originPrice=0`（逐字段独立容错）；对本次返回的 Resource 反射调用 `setProductBought(true)`、`setProductPrice(0)`；为详情对象与返回对象登记类别标签 | 按类别 |
-| 6 | `basemodule.views.DiscountPriceView` → public `(II)V` 价格入口 | 按签名匹配，不依赖方法名；只挂 public，同签名 private 辅助方法不挂 | before | `args[0]=0`、`args[1]=0`——原价现价同时归零，由宿主自身渲染免费态，禁止硬编码"免费"文案 | hide_paid_badges |
+| 6 | `basemodule.views.DiscountPriceView` → public `(II)V` 价格入口 | 按签名匹配，不依赖方法名；只挂 public，同签名 private 辅助方法不挂 | before | `args[0]=0`、`args[1]=0`——原价现价同时归零，由宿主自身渲染免费态，禁止硬编码“免费”文案 | hide_paid_badges |
 | 7 | `basemodule.ad.model.AdInfoResponse` → `isAdValid(AdInfo)` | 按名，单参 AdInfo | before | `setResult(false)` | hide_theme_ads |
 | 8 | `basemodule.ad.model.AdInfo` → `isVideoAd()` | 按名，`()Z` | before | `setResult(false)` | hide_theme_ads |
 | 9–11 | `PureAdBannerViewHolder`、`SelfFontItemAdViewHolder`、`SelfRingtoneItemAdViewHolder` 构造器 `(View, RecommendListViewAdapter[, int])` | 首参 View、次参 RecommendListViewAdapter、可选第三参 int（兼容新版增参） | after | `args[0]` 非空时：已有 LayoutParams 则宽高置 0，没有则按父容器类型（FrameLayout/LinearLayout/RelativeLayout）新建 `(0,0)`；再 `setVisibility(GONE)` | hide_theme_ads |
 | 12 | `BaseAdViewHolder` 构造器 `(View, RecommendListViewAdapter)` | 仅当 #9–#11 三类都没挂上时才兜底挂载；回调内再校验 `thisObject` 的类名属于 #9–#11 且未被覆盖 | after | 同 #9–#11 | hide_theme_ads |
 | 13 | `com.miui.maml.widget.edit.MamlutilKt` → `themeManagerSupportPaidWidget(Context)` | 按名，`(Context)Z`，存在才挂 | before | `setResult(false)`——让 MAML SDK 判定主题壁纸不支持付费组件，其授权工具（`MamlDrmUtilKt.isLegal`、`downloadAndCopyRight`、`queryMamlRights` 等）直接返回 `DRM_ERROR_UNKNOWN`/`-3`/`null`，调用方按无付费机制处理。经逆向核实，该 SDK 链在主题壁纸进程内无外部调用方；保留作为跨版本保险（存在才挂，零成本） | unlock_paid_widgets |
-| 14 | DRM 业务方法（特征扫描，8.4）：`controller.online` 包下返回 `DrmResult`、参数为单个 Resource 的实例方法 | 特征定位 | after | 原方法无异常、返回非 null 时放行判定分两条：① 首个参数有 productId 且按类别放行（探测保护见 8.2）→ `setResult(真实 DRM_SUCCESS)`（8.3），开关按类别；② 首个参数为**无 productId 的普通资源**（本地导入主题）且 `allow_third_party_themes` 开启 → 同样 `setResult(DRM_SUCCESS)`——应用时被应用层校验拦截的兜底，与框架层窗口（6.2 #3–#4）共同覆盖"导入-应用-持久"全链路；价格与购买态不触碰 | ① 按类别；② allow_third_party_themes |
+| 14 | DRM 业务方法（特征扫描，8.4）：`controller.online` 包下返回 `DrmResult`、参数为单个 Resource 的实例方法 | 特征定位 | after | 原方法无异常、返回非 null 时放行判定分两条：① 首个参数有 productId 且按类别放行（探测保护见 8.2）→ `setResult(真实 DRM_SUCCESS)`（8.3），开关按类别；② 首个参数为**无 productId 的普通资源**（本地导入主题）且 `allow_third_party_themes` 开启 → 同样 `setResult(DRM_SUCCESS)`——应用时被应用层校验拦截的兜底，与框架层窗口（6.2 #3–#4）共同覆盖“导入-应用-持久”全链路；价格与购买态不触碰 | ① 按类别；② allow_third_party_themes |
 | 15 | 大图标应用任务（特征扫描，8.4）：参数 `[Void[]]`、任务类持有 Resource 实例字段 | 特征定位 + 字段确认 | before + after | before：把任务持有的 Resource 压入线程任务栈并绑定到本次调用；productId 校验通过且开关开启时准备授权占位文件（8.5）。after：无条件出栈（含异常路径） | 栈部分服务类别判定；授权文件部分 = unlock_large_icons |
 | 16 | `Resource` → `clone()` | 按名，`()Resource`（排除返回 Object 的 bridge 方法） | after | 把原对象的类别标签传播给克隆对象——DRM 校验内部会克隆资源，不传播会丢类别 | 标签机制 |
 | 17 | `superwallpaper.activity.MamlSuperWallpaperDetailActivity`（以 `Activity.onCreate` 为入口，回调内校验实例类型） | 类存在才挂 | before | 修正 intent 中 `extra_bundle` 的 classLoader，反序列化 `extra_superwallpaper_info`，为该 Resource 登记 MAML 标签——超级壁纸由此归入小组件开关 | 标签机制 |
 | 18 | `com.android.thememanager.model.LargeIconElement` → `create(UIProduct, int)` 静态工厂 | 按名 + 重载签名（static、首参 `router.recommend.entity.UIProduct`、次参 int、返回 LargeIconElement） | after | 大图标解锁开启、返回非 null 且元素 `productId` 非空时：写 `currentPriceInCent=0`、`originPriceInCent=0`、`hasBought=true`，原值入 journal（8.6.1）——选择器与购买入口的元素由此构造 | unlock_large_icons |
-| 19 | `LargeIconHomeCardViewHolder`、`LargeIconTwoItemCardViewHolder`、`LargeIconItemViewHolder`（各含内部类）→ 绑定方法 | 类名 + 参数结构匹配：实例、非桥接、void 返回；参数恰一个 `UIProduct`，或恰一个声明 `UIProduct` 实例字段的对象参数，其余参数限 int/Integer（方法名已混淆，不按名匹配） | before | 大图标解锁开启且商品 `productUuid` 非空时：改写该 `UIProduct` 的 `currentPriceInCent=0`、`originPriceInCent=0`、`isPurchased=true`，原值入 journal（8.6.1）——feed 卡片价格直读该字段，归零后宿主格式化函数渲染"免费" | unlock_large_icons |
+| 19 | `LargeIconHomeCardViewHolder`、`LargeIconTwoItemCardViewHolder`、`LargeIconItemViewHolder`（各含内部类）→ 绑定方法 | 类名 + 参数结构匹配：实例、非桥接、void 返回；参数恰一个 `UIProduct`，或恰一个声明 `UIProduct` 实例字段的对象参数，其余参数限 int/Integer（方法名已混淆，不按名匹配） | before | 大图标解锁开启且商品 `productUuid` 非空时：改写该 `UIProduct` 的 `currentPriceInCent=0`、`originPriceInCent=0`、`isPurchased=true`，原值入 journal（8.6.1）——feed 卡片价格直读该字段，归零后宿主格式化函数渲染“免费” | unlock_large_icons |
 
 ### 6.2 `android`（system_server，DRM 框架层）
 
@@ -223,7 +327,7 @@
 
 ### 7.1 分类体系（多套概念并存，各司其职）
 
-主题壁纸内部并存多套"类别"概念，来源与用途互不相同，分析时必须分开、不可混用：
+主题壁纸内部并存多套“类别”概念，来源与用途互不相同，分析时必须分开、不可混用：
 
 | 维度 | 载体（源文件名） | 内容 | 用途 / 边界 |
 | --- | --- | --- | --- |
@@ -293,7 +397,7 @@ main_tab_sort（服务端：TAB 显隐与顺序）
 | 主题内子模块：`framework-res / launcher / statusbar / BootAnimation / boots / animation / contact / Mms / incallshow / thirdapp / notification / alarm / bootaudio / audioeffect / ringtones / alarmscreen / mmsringtone / calendarringtone` 等 | `RelatedResource` 子资源，无独立 productId（音频族码同时位于 `ki()` 硬编码免费名单） | #14 按父资源分类 + 逐子资源 `.mra` 校验；6.2 #3 路径判定兜底 |
 | 桌面 gadget 元素：`Clock_1x2/2x2/2x4/3x4`、`photo_frame_*`、`icons_2x3/4x3`、`HOVER`、`POP` | 组件选择器描述符，非商品 | 无 productId，探测保护（8.2）自动放行 |
 
-补充：推荐流（首页 TAB 与列表）的商品卡片价格直读 `UIProduct.currentPriceInCent`，不经 Resource 管线——Resource 层 Hook 天然覆盖不到。字体/主题卡片经 `DiscountPriceView` 显示（6.1 #6 覆盖），大图标卡片自绘价格文本，故另设 #18–#19 数据层改写；价格 ≤0 时宿主格式化函数自带"免费"分支。
+补充：推荐流（首页 TAB 与列表）的商品卡片价格直读 `UIProduct.currentPriceInCent`，不经 Resource 管线——Resource 层 Hook 天然覆盖不到。字体/主题卡片经 `DiscountPriceView` 显示（6.1 #6 覆盖），大图标卡片自绘价格文本，故另设 #18–#19 数据层改写；价格 ≤0 时宿主格式化函数自带“免费”分支。
 
 ### 7.4 DRM 校验链速览
 
@@ -319,7 +423,7 @@ main_tab_sort（服务端：TAB 显隐与顺序）
 
 标签缓存以**对象身份**（identity）为键、弱引用持有——宿主模型类可能实现值相等，按值缓存会把标签误发给相等对象。`clone()` 的 after（6.1 #16）负责把标签带到克隆体上。
 
-三个解锁开关分别对应三类资源；"未知"类别永不改写。
+三个解锁开关分别对应三类资源；“未知”类别永不改写。
 
 ### 8.2 门控与探测保护
 
@@ -335,7 +439,7 @@ main_tab_sort（服务端：TAB 显隐与顺序）
 
 **真实枚举注入**：所有注入的 `DRM_SUCCESS` 一律从被 Hook 方法的**真实返回类型**反射取得（`returnType.getField("DRM_SUCCESS")`），不打包任何 `miui.drm` 存根，保证枚举实例来自宿主进程实际加载的框架类。
 
-**瞬时窗口（ScopedHookWindow）**：`validateTheme` 会对主题目录的子目录递归自调用、逐个组件调用 `DrmManager.isLegal`。窗口机制按"每进程安装、按线程授权"运作：
+**瞬时窗口（ScopedHookWindow）**：`validateTheme` 会对主题目录的子目录递归自调用、逐个组件调用 `DrmManager.isLegal`。窗口机制按“每进程安装、按线程授权”运作：
 
 - 进入 `validateTheme` 时按路径类别决定是否租借；租借使引用计数 0→1，此时才动态挂载 6.2 #4 的全部目标（含失败回滚已挂部分）；
 - 每次调用（含嵌套递归、含未租借的调用）都压入线程帧栈；`isLegal` 等回调只认本线程最上层的已租借帧；
@@ -381,7 +485,7 @@ main_tab_sort（服务端：TAB 显隐与顺序）
 ### 8.7 激活自检与图标隐藏
 
 - **激活自检**：不 Hook 任何方法——模块加载入口在自身进程经 `param.classLoader` 反射调用 `ModuleStatus.markActive()` 置静态标志（必须经应用 classloader 取类：新框架的模块类加载器与宿主 classpath 隔离，直接静态赋值有类身份分裂风险，反射走应用 classloader 保证与 UI 读取同一个 Class 实例）；框架 API 版本由入口直接调用 `XposedBridge.getXposedVersion()`（该类仅模块类加载器可见，应用自身 classloader 反射不可达——UI 侧 `Class.forName` 必失败）并经同一反射通道记入 `ModuleStatus`；UI 读 `ModuleStatus.isActive()` 渲染激活卡片，未被框架加载时保持编译期默认 false。不检测、不上报各宿主的接入状态；
-- **图标隐藏**：见第 4 节第 6 条，与 Hook 状态完全无关。
+- **图标隐藏**：见 4.6，与 Hook 状态完全无关；
 
 ---
 
