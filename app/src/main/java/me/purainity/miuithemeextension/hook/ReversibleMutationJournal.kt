@@ -10,7 +10,7 @@ import java.lang.ref.WeakReference
  * 主题壁纸会复用详情页与 feed 的内存对象，仅停止 Hook 不能撤销已写入的“已购买/免费”状态
  * 因此记录必须按对象身份去重、仅首次捕获原值，且不能阻止宿主回收对象
  */
-class ReversibleMutationJournal {
+class ReversibleMutationJournal(private val onError: (Throwable) -> Unit = {}) {
     private data class Entry(
         val target: WeakReference<Any>,
         val productId: String,
@@ -45,7 +45,8 @@ class ReversibleMutationJournal {
                 try {
                     entry.restore(target)
                 } catch (error: Throwable) {
-                    HookLog.error("restore cached resource", error)
+                    if (error is VirtualMachineError || error is ThreadDeath) throw error
+                    onError(error)
                 }
                 tracked.remove(target)
                 iterator.remove()

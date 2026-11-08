@@ -6,45 +6,74 @@ import me.purainity.miuithemeextension.config.Setting
 import java.lang.reflect.Field
 import java.lang.reflect.Member
 import java.lang.reflect.Method
-import java.util.concurrent.ConcurrentHashMap
 
-/** Xposed 日志：统一前缀，同一位置同一类异常只记录首次，避免刷屏（1） */
+/** 宿主进程内共享诊断器，不依赖模块应用自身的类加载器 */
 object HookLog {
-    private val seen = ConcurrentHashMap.newKeySet<String>()
-    fun info(message: String) = XposedBridge.log("MIUI 主题扩展: $message")
-    fun error(point: String, error: Throwable) {
-        if (seen.add("$point:${error.javaClass.name}")) info("$point: ${error.javaClass.simpleName} ${error.message.orEmpty().take(160)}")
-    }
+    private val output = DiagnosticLog(sink = { message -> XposedBridge.log(message) })
+    fun forHost(host: String) = HostLog(output, host)
+}
+
+/** 绑定宿主标识，统一状态、警告和异常的输出格式 */
+class HostLog(private val output: DiagnosticLog, private val host: String) {
+    fun info(message: String) = output.info(host, message)
+    fun warn(message: String) = output.warn(host, message)
+    fun error(point: String, phase: String, error: Throwable) = output.error(host, point, phase, error)
 }
 
 /** Hook 装配基础（5.2 容错）：类查找、方法过滤、安装与异常隔离，任何失败只记日志不上抛 */
 class Hooks(val loader: ClassLoader, val client: HostConfigClient) {
+    val log get() = client.log
+    private val activeGroup = ThreadLocal<HookGroupStats>()
+    private val groups = ArrayList<HookGroupStats>()
+
+    /** 汇总同一功能组的安装尝试，可选组未找到时不发警告 */
+    fun group(name: String, optional: Boolean = false, block: () -> Unit) {
+        val previous = activeGroup.get()
+        val group = HookGroupStats(name, optional)
+        activeGroup.set(group)
+        try { block() } catch (error: Throwable) {
+            group.aborted = true
+            throw error
+        } finally {
+            groups += group
+            if (previous == null) activeGroup.remove() else activeGroup.set(previous)
+        }
+    }
+
+    /** 安装统计只代表实际挂载，不代表业务功能已验证 */
+    fun reportGroups() {
+        if (groups.isEmpty()) return
+        log.info("Hook installation: " + groups.joinToString(" ") { "${it.name}=${it.state()}" })
+        val unavailable = groups.filter { it.unavailable() }
+        if (unavailable.isNotEmpty()) log.warn("Hook groups unavailable: " + unavailable.joinToString(",") { it.name })
+    }
     /** 按全限定名加载宿主类，找不到返回 null */
     fun find(name: String): Class<*>? = try { Class.forName(name, false, loader) }
-        catch (e: ClassNotFoundException) { HookLog.error(name, e); null }
-        catch (e: LinkageError) { HookLog.error(name, e); null }
+        catch (_: ClassNotFoundException) { null }
+        catch (e: LinkageError) { activeGroup.get()?.lookupFailed = true; log.error(name, "class_lookup", e); null }
     /** 取类中通过过滤的已声明方法，异常时返回空列表 */
     fun methods(name: String, filter: (Method) -> Boolean): List<Method> = try {
         find(name)?.declaredMethods?.filter(filter).orEmpty()
-    } catch (e: Throwable) { isolate(name, e); emptyList() }
+    } catch (e: Throwable) { activeGroup.get()?.lookupFailed = true; isolate(name, "method_lookup", e); emptyList() }
     /** 安装方法 Hook，回调内异常与安装失败都只记日志；失败返回 null */
     fun install(member: Member, before: ((XC_MethodHook.MethodHookParam) -> Unit)? = null,
                 after: ((XC_MethodHook.MethodHookParam) -> Unit)? = null): XC_MethodHook.Unhook? = try {
         val unhook = XposedBridge.hookMethod(member, object : XC_MethodHook() {
-            override fun beforeHookedMethod(param: MethodHookParam) { runCallback(member, before, param) }
-            override fun afterHookedMethod(param: MethodHookParam) { runCallback(member, after, param) }
+            override fun beforeHookedMethod(param: MethodHookParam) { runCallback(member, "before", before, param) }
+            override fun afterHookedMethod(param: MethodHookParam) { runCallback(member, "after", after, param) }
         })
+        activeGroup.get()?.let { it.installed++ }
         unhook
-    } catch (e: Throwable) { isolate(member.toString(), e); null }
+    } catch (e: Throwable) { activeGroup.get()?.let { it.failed++ }; isolate(member.toString(), "install", e); null }
     // 回调异常不外泄到宿主调用栈
-    private fun runCallback(member: Member, callback: ((XC_MethodHook.MethodHookParam) -> Unit)?, param: XC_MethodHook.MethodHookParam) {
+    private fun runCallback(member: Member, phase: String, callback: ((XC_MethodHook.MethodHookParam) -> Unit)?, param: XC_MethodHook.MethodHookParam) {
         if (callback == null) return
-        try { callback(param) } catch (e: Throwable) { isolate(member.toString(), e) }
+        try { callback(param) } catch (e: Throwable) { isolate(member.toString(), phase, e) }
     }
     // 虚拟机级致命错误原样上抛，其余降级为日志
-    private fun isolate(point: String, error: Throwable) {
+    private fun isolate(point: String, phase: String, error: Throwable) {
         if (error is VirtualMachineError || error is ThreadDeath) throw error
-        HookLog.error(point, error)
+        log.error(point, phase, error)
     }
     /** 常量改写：开关开启且原方法无异常时把布尔返回值固定为 value，同名重载按 signature 区分 */
     fun constant(name: String, method: String, value: Boolean, setting: Setting, after: Boolean = false,

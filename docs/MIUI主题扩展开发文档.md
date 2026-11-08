@@ -11,7 +11,7 @@
 | Xposed 入口 | `me.purainity.miuithemeextension.hook.XposedEntry`，仅实现 `IXposedHookLoadPackage`，不使用 zygote 入口 |
 | 推荐作用域 | manifest 通过 `xposedscope` 静态声明下方四个宿主进程 |
 | 目标系统 | MIUI 12–14 及更新的 MIUI 版本 |
-| 日志 | 统一前缀 `MIUI 主题扩展: `，写入 Xposed 日志；同一 Hook 点的同类异常只记录首次，避免刷屏 |
+| 日志 | 写入 Xposed 日志，采用 `[MIUIThemeExtension][等级][宿主]` 前缀和英文正文；输出范围与去重策略见 5.2 |
 
 宿主进程共四个：
 
@@ -247,7 +247,9 @@
 
 ### 5.2 公共约定
 
-- **容错**：目标类容错查找，不存在只记日志跳过；每个 Hook 点独立异常隔离，回调内部再隔离一次——单点失败既不影响原方法执行，也不影响其他 Hook 点（致命虚拟机错误除外）；
+- **容错**：目标类容错查找，类或备用签名缺失时跳过，不逐一报错；每个 Hook 点独立异常隔离，回调内部再隔离一次——单点失败既不影响原方法执行，也不影响其他 Hook 点（致命虚拟机错误及线程终止除外）；
+- **诊断格式**：正文使用英文，前缀中的 `I`、`W`、`E` 分别表示状态、警告和错误，宿主使用完整包名 `com.android.thememanager`、`com.miui.personalassistant`、`com.miui.home`、`android` 或 `me.purainity.miuithemeextension`；等级是模块自己的语义标记，不依赖管理器对外层日志等级的展示。按宿主启动输出版本、进程和功能组挂载摘要；仅在必需功能组没有任何成功挂载时警告，可选组缺失不警告。组内只要有一个成功挂载即有安装数，**不能据此认为该组所有 Hook 均已安装或业务已经验证成功**；system_server 的 DRM 窗口按需安装，不作为启动时失败；
+- **诊断限流与隐私**：异常按宿主、位置、阶段和异常类在进程内去重，最多保留 256 个不同键，达到上限只提示一次；首次异常记录有限堆栈与原因链，最多 24 帧、3 层原因链、2400 字符的堆栈部分。日志不写异常消息、文件路径或商品 ID；输出渠道自身的普通异常被隔离，致命虚拟机错误及线程终止仍上抛；不记录每次业务 Hook 回调。
 - **匹配**：按名匹配时必须同时核验参数与返回类型；混淆目标一律经特征扫描定位（8.4），不出现任何硬编码混淆名；
 - **纪律**：回调先门控后动作；after 回调在原方法抛出异常时**仍会执行**（异常已被框架捕获进 param，`hasThrowable()` 为 true），且 `setResult` 会顺带清除 throwable——因此凡改写结果的 after 回调必须先判 `!hasThrowable()`，命中异常时只做清理（弹栈、退窗口），绝不改写结果或参数，不掩盖宿主异常；
 - **版本策略**：按类、签名、特征三级判定，不按宿主版本号套用整组 Hook。
@@ -456,7 +458,8 @@ main_tab_sort（服务端：TAB 显隐与顺序）
 - DRM 业务方法：非 static、类前缀 `com.android.thememanager.controller.online`、返回 `miui.drm.DrmManager$DrmResult`、参数为单个 Resource、方法体字符串含 `"check rights isLegal:"` 或同时含 `theme`、`ThemeManagerTag`、`/system`；
 - 大图标任务：非 static、参数 `[Void[]]`、字符串同时含 `apply failed`、`/data/system/theme/large_icons/`、`default_large_icon_product_id`，且任务类持有 Resource 实例字段；
 - 扫描覆盖 split APK；以各 dex 条目（名称:CRC:大小）计算指纹缓存于宿主私有存储，命中缓存直接反序列化方法清单，未命中全量扫描后写入；
-- 任一环节失败整段放弃，不影响其他 Hook；两类方法都命中才写缓存。
+- 单个 dex 解析失败时跳过该 dex 并继续扫描，其他发现环节失败则放弃本次发现；均不影响其他 Hook，两类方法都命中才写缓存；
+- 诊断摘要分别报告 `cache` 或 `scan` 来源、两类目标的候选数 / 运行时回查数 / 实际挂载数，以及解析失败的 dex 数量；候选数按原有去重规则计算，回查成功不等于通过所有安装条件。任一类挂载为零、dex 解析失败或发现流程异常时输出警告；失败按阶段和匿名 APK 序号记录，不输出 APK 路径、缓存指纹或商品信息。
 
 ### 8.5 大图标授权文件与归属管理
 
@@ -472,7 +475,8 @@ main_tab_sort（服务端：TAB 显隐与顺序）
 ### 8.6 配置跨进程同步
 
 - **写入侧**（模块 UI 进程）：设备保护存储（Direct Boot 可用）的 SharedPreferences 保存全部键值，每次写入令 `revision+1` 并 `notifyChange`；
-- **读取侧**（宿主进程）：导出只读 ContentProvider（authority `me.purainity.miuithemeextension.config`，`directBootAware` 覆盖开机未解锁阶段）。鉴权：system UID 视为 `android` 宿主，其余按调用方 UID 反查包名并与四宿主求交；`insert/update/delete` 一律拒绝。宿主获得 Context 后注册 ContentObserver，并在注册后立即查询快照刷新内存缓存。主题商店被 MIUI 降为后台时，虽仍保留观察者注册，却可能延迟跨 UID 回调；因此在每个宿主 Activity 的 `onResume` 前同步重新查询快照。读取失败按全关配置处理且只记一次日志。
+- **读取侧**（宿主进程）：导出只读 ContentProvider（authority `me.purainity.miuithemeextension.config`，`directBootAware` 覆盖开机未解锁阶段）。鉴权：system UID 视为 `android` 宿主，其余按调用方 UID 反查包名并与四宿主求交；`insert/update/delete` 一律拒绝。宿主获得 Context 后注册 ContentObserver，并在注册后立即查询快照刷新内存缓存。主题商店被 MIUI 降为后台时，虽仍保留观察者注册，却可能延迟跨 UID 回调；因此在每个宿主 Activity 的 `onResume` 前同步重新查询快照。读取失败按全关配置处理；首次读取成功、失败状态转变及恢复分别记录，重复失败不反复输出。
+- **配置诊断**：system_server 的早期异步尝试失败只作一次状态提示，权限异常仍按普通失败告警；系统就绪后的失败按状态变化告警并记录去重异常，恢复时报告配置 revision。早期提示只是描述尝试时机，不断言失败原因；其他宿主的读取失败直接告警。
 - **system_server 读取时机**：两个早期注入点（6.2 #1/#2）在开机阶段 ContentService 尚未启动时异步尝试、预期失败（不阻塞开机）；真正的拉取发生在 validateTheme 入口（6.2 #3）——**同步执行**（此时系统必然就绪，binder 线程短暂阻塞可接受），确保本帧窗口的租借判定读到真实配置；未成功读取期间每次 validateTheme 都重试，成功后由 ContentObserver 接管变更；模块不可用（卸载/禁用）时保持全关，系统 DRM 真实运行（fail-closed）。
 - 开关变化通过 ContentObserver 立即通知运行中的应用宿主；用户从设置返回宿主、或重新进入详情时由前台边界拉取保证读取最新 revision；未运行的宿主会在下次启动并注册观察者后读取最新快照。同步正确性不依赖广播或轮询。
 
@@ -493,7 +497,7 @@ main_tab_sort（服务端：TAB 显隐与顺序）
 
 | 项 | 说明 |
 | --- | --- |
-| `validateTheme` 签名 | 新版为四参 `(Context,String,String,Map)→void`，旧版为三参 `(Context,String,String)→boolean`，两种签名均已按精确参数匹配挂载（分别经真机 dexdump 与框架编译桩核实）。后续版本若再变更签名，该点静默跳过，框架层窗口整体不生效，主题壁纸进程的 6.1 #14 不受影响 |
+| `validateTheme` 签名 | 新版为四参 `(Context,String,String,Map)→void`，旧版为三参 `(Context,String,String)→boolean`，两种签名均已按精确参数匹配挂载（分别经真机 dexdump 与框架编译桩核实）。后续版本若再变更签名，两种签名均未挂载时功能组输出警告，框架层窗口整体不生效，主题壁纸进程的 6.1 #14 不受影响 |
 | DEX 扫描缓存 | 仅当 DRM 与大图标两类方法都命中才写指纹缓存；只命中一类时每次冷启动全量重扫，属性能损耗，无功能影响 |
 | 重载覆盖 | `isCanDirectAddMaMl` 按 `(int)` 精确签名挂载（实测唯一重载）；`isSupportAd` 按单参 Context/File 匹配（恰为框架全部重载）。宿主未来新增其他重载时需核对语义后再扩展 |
 | 生效时机 | 已隐藏的 View 需刷新页面才恢复；关闭解锁开关时会先回滚已改写的缓存对象，返回列表后立即再次进入详情页即可看到原购买态；大图标授权文件在关闭功能时仅清理本模块创建且仍为空的文件 |

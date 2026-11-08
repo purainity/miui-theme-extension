@@ -18,7 +18,7 @@ class ThemeHooks(private val hooks: Hooks) {
     private val client = hooks.client
     // 身份标签缓存：对象与其 onlineProperties 载体各自成键（8.1 判定顺序第 1 步）
     private val tags = WeakIdentityMap<ResourceKind>()
-    private val mutations = ReversibleMutationJournal()
+    private val mutations = ReversibleMutationJournal { hooks.log.error("cached_resource", "rollback", it) }
     // 原值读取区间内的资源栈：区间内对象的改写全部旁路（8.6.1）
     private val originalRead = ThreadLocal<ArrayList<Any>>()
     // 任务栈：本线程执行中的大图标任务持有的资源（8.1 判定顺序第 2 步）
@@ -112,51 +112,55 @@ class ThemeHooks(private val hooks: Hooks) {
 
     /** 安装主题壁纸进程的全部 Hook（6.1）；混淆目标经 DEX 扫描定位，需宿主上下文与 APK 路径（8.4） */
     fun install(source: String?, splits: Array<out String>) {
-        resourceHooks(RESOURCE)
-        resourceHooks(PROPERTIES)
-        hooks.methods(DETAIL) { it.name == "toResource" && it.returnType.name == RESOURCE }.forEach { target ->
-            hooks.install(target, after = { param ->
-                val detail = param.thisObject ?: return@install
-                if (!param.hasThrowable() && allowed(detail)) {
-                    // 为详情对象与返回的 Resource 分别登记类别标签（6.1 #5）
-                    val kind = kind(detail)
-                    val productId = id(detail) ?: return@install
-                    tag(detail, kind)
-                    val resource = param.result
-                    if (resource != null) tag(resource, kind)
-                    rememberDetail(detail, productId, kind)
-                    listOf("bought" to true, "productPrice" to 0, "originPrice" to 0).forEach { (name, value) ->
-                        try { Hooks.write(detail, name, value) } catch (e: Exception) { HookLog.error("detail/$name", e) }
+        hooks.group("resources") {
+            resourceHooks(RESOURCE)
+            resourceHooks(PROPERTIES)
+            hooks.methods(DETAIL) { it.name == "toResource" && it.returnType.name == RESOURCE }.forEach { target ->
+                hooks.install(target, after = { param ->
+                    val detail = param.thisObject ?: return@install
+                    if (!param.hasThrowable() && allowed(detail)) {
+                        // 为详情对象与返回的 Resource 分别登记类别标签（6.1 #5）
+                        val kind = kind(detail)
+                        val productId = id(detail) ?: return@install
+                        tag(detail, kind)
+                        val resource = param.result
+                        if (resource != null) tag(resource, kind)
+                        rememberDetail(detail, productId, kind)
+                        listOf("bought" to true, "productPrice" to 0, "originPrice" to 0).forEach { (name, value) ->
+                            try { Hooks.write(detail, name, value) } catch (e: Exception) { hooks.log.error("detail/$name", "after", e) }
+                        }
+                        if (resource != null) {
+                            rememberResource(resource, productId, kind)
+                            try { resource.javaClass.getMethod("setProductBought", Boolean::class.javaPrimitiveType).invoke(resource, true) }
+                            catch (e: Exception) { hooks.log.error("detail/bought", "after", e) }
+                            try { resource.javaClass.getMethod("setProductPrice", Int::class.javaPrimitiveType).invoke(resource, 0) }
+                            catch (e: Exception) { hooks.log.error("detail/price", "after", e) }
+                        }
                     }
-                    if (resource != null) {
-                        rememberResource(resource, productId, kind)
-                        try { resource.javaClass.getMethod("setProductBought", Boolean::class.javaPrimitiveType).invoke(resource, true) }
-                        catch (e: Exception) { HookLog.error("detail/bought", e) }
-                        try { resource.javaClass.getMethod("setProductPrice", Int::class.javaPrimitiveType).invoke(resource, 0) }
-                        catch (e: Exception) { HookLog.error("detail/price", e) }
+                })
+            }
+            hooks.methods(RESOURCE) { it.name == "clone" && it.parameterTypes.size == 0 && it.returnType.name == RESOURCE }.forEach {
+                hooks.install(it, after = { param ->
+                    val clone = param.result
+                    val original = param.thisObject
+                    if (!param.hasThrowable() && clone != null && original != null) {
+                        tags[original]?.let { value -> tag(clone, value) }
                     }
-                }
-            })
+                })
+            }
         }
-        hooks.methods(RESOURCE) { it.name == "clone" && it.parameterTypes.size == 0 && it.returnType.name == RESOURCE }.forEach {
-            hooks.install(it, after = { param ->
-                val clone = param.result
-                val original = param.thisObject
-                if (!param.hasThrowable() && clone != null && original != null) {
-                    tags[original]?.let { value -> tag(clone, value) }
-                }
-            })
+        hooks.group("paid_badges") {
+            hooks.methods("com.android.thememanager.basemodule.views.DiscountPriceView") {
+                Modifier.isPublic(it.modifiers) && it.returnType == Void.TYPE &&
+                    it.parameterTypes.contentEquals(arrayOf(Int::class.javaPrimitiveType, Int::class.javaPrimitiveType))
+            }.forEach { hooks.install(it, before = { param ->
+                if (client.config.enabled(Setting.PAID_BADGES)) { param.args[0] = 0; param.args[1] = 0 }
+            }) }
         }
-        hooks.methods("com.android.thememanager.basemodule.views.DiscountPriceView") {
-            Modifier.isPublic(it.modifiers) && it.returnType == Void.TYPE &&
-                it.parameterTypes.contentEquals(arrayOf(Int::class.javaPrimitiveType, Int::class.javaPrimitiveType))
-        }.forEach { hooks.install(it, before = { param ->
-            if (client.config.enabled(Setting.PAID_BADGES)) { param.args[0] = 0; param.args[1] = 0 }
-        }) }
-        ads()
-        largeIconFeed()
-        WidgetHooks.maml(hooks)
-        mamlWallpaper()
+        hooks.group("ads") { ads() }
+        hooks.group("large_icon_feed") { largeIconFeed() }
+        hooks.group("maml", optional = true) { WidgetHooks.maml(hooks) }
+        hooks.group("maml_wallpaper", optional = true) { mamlWallpaper() }
         // 旧 presenter 类名在两个基线 APK 中均不存在，不做投机性的布尔 Hook 挂载
         // 授权占位文件目录与归属日志的落位见 8.5
         client.onAttached += { context ->
@@ -174,7 +178,7 @@ class ThemeHooks(private val hooks: Hooks) {
     /** 大图标开关关闭时清理本模块创建且仍为空的授权占位文件（8.5） */
     private fun cleanupRights() {
         if (!client.config.enabled(Setting.LARGE_ICONS)) try { rights?.cleanup() }
-        catch (e: Exception) { HookLog.error("rights cleanup", e) }
+        catch (e: Exception) { hooks.log.error("rights", "cleanup", e) }
     }
     /** 购买态与价格的读写方法常量改写（6.1 #1–#4）：读返回已购与零价，写参数强制已购与零价 */
     private fun resourceHooks(name: String) {
@@ -309,6 +313,8 @@ class ThemeHooks(private val hooks: Hooks) {
     }
     /** DEX 扫描定位混淆方法（8.4）：DRM 业务方法与大图标应用任务，命中结果按 APK 指纹缓存 */
     private fun discover(paths: List<String>) {
+        val stats = DiscoveryStats()
+        var phase = "fingerprint"
         try {
             val context = client.context ?: return
             val cache = context.getSharedPreferences("miui_theme_extension_dex", 0)
@@ -320,25 +326,35 @@ class ThemeHooks(private val hooks: Hooks) {
                     "$path:$dexEntries"
                 }
             }
+            phase = "cache_read"
             val cached = if (cache.getString("fingerprint", null) == fingerprint) cache.getStringSet("methods", null) else null
+            stats.source = if (cached == null) "scan" else "cache"
+            phase = if (cached == null) "scan" else "cache_read"
             val found: List<Pair<String, DexIndex.MethodRef>> = cached?.map { line ->
                 val parts = line.split('|'); require(parts.size == 5)
                 parts[0] to DexIndex.MethodRef(parts[1], parts[2], parts[3].split(',').filter { it.isNotEmpty() }, parts[4], 0, emptySet())
-            } ?: paths.flatMap { path ->
-                DexIndex.scanApk(File(path), "Lcom/android/thememanager/") { dex, e -> HookLog.error("DEX/$dex", e) }
-                    .mapNotNull { method -> when {
-                        HostDiscovery.drm(method) -> "drm" to method
-                        HostDiscovery.largeIcon(method) -> "large" to method
-                        else -> null
-                    } }
+            } ?: paths.flatMapIndexed { index, path ->
+                DexIndex.scanApk(File(path), "Lcom/android/thememanager/") { dex, error ->
+                    stats.scanErrors++
+                    hooks.log.error("dex/apk$index/$dex", "scan", error)
+                }.mapNotNull { method -> when {
+                    HostDiscovery.drm(method) -> "drm" to method
+                    HostDiscovery.largeIcon(method) -> "large" to method
+                    else -> null
+                } }
             }
+            val candidates = found.distinctBy { it.second.owner + it.second.name + it.second.parameters }
+            stats.drm.candidates = candidates.count { it.first == "drm" }
+            stats.large.candidates = candidates.size - stats.drm.candidates
             // 将 DEX 引用回查为运行时 Method 并安装 Hook
-            var drmFound = 0; var largeFound = 0
-            found.distinctBy { it.second.owner + it.second.name + it.second.parameters }.forEach { (type, ref) ->
+            phase = "resolve"
+            candidates.forEach { (type, ref) ->
+                val counts = if (type == "drm") stats.drm else stats.large
                 val clazz = hooks.find(ref.owner.removePrefix("L").removeSuffix(";").replace('/', '.')) ?: return@forEach
                 val method = clazz.declaredMethods.firstOrNull { target -> target.name == ref.name &&
                     target.parameterTypes.map { Hooks.descriptor(it) } == ref.parameters && Hooks.descriptor(target.returnType) == ref.returns &&
                     !Modifier.isStatic(target.modifiers) } ?: return@forEach
+                counts.resolved++
                 if (type == "drm") {
                     val success = Hooks.drmSuccess(method)
                     if (hooks.install(method, after = { param ->
@@ -348,20 +364,24 @@ class ThemeHooks(private val hooks: Hooks) {
                         val resource = param.args.firstOrNull()
                         if (!param.hasThrowable() && param.result != null &&
                             (allowed(resource) || thirdParty(resource))) { param.result = success }
-                    }) != null) drmFound++
+                    }) != null) counts.installed++
                 } else if (Hooks.fields(clazz).any { it.type.name == RESOURCE && !Modifier.isStatic(it.modifiers) }) {
-                    if (largeTask(method)) largeFound++
+                    if (largeTask(method)) counts.installed++
                 }
             }
             // 两类目标都命中才写缓存，避免半命中状态被长期缓存
-            if (cached == null && drmFound > 0 && largeFound > 0) {
+            phase = "cache_write"
+            if (cached == null && stats.drm.installed > 0 && stats.large.installed > 0) {
                 cache.edit {
                     putString("fingerprint", fingerprint)
                     putStringSet("methods", found.map { (type, ref) -> "$type|${ref.owner}|${ref.name}|${ref.parameters.joinToString(",")}|${ref.returns}" }.toSet())
                 }
             }
-            HookLog.info("主题壁纸: DRM=$drmFound, 大图标=$largeFound")
-        } catch (e: Exception) { HookLog.error("discovery", e) }
+        } catch (error: Exception) {
+            stats.failedPhase = phase
+            hooks.log.error("dex_discovery", phase, error)
+        }
+        if (stats.hasIssues()) hooks.log.warn(stats.summary()) else hooks.log.info(stats.summary())
     }
     /** 大图标应用任务（6.1 #15）：before 把资源压入任务栈并准备授权占位文件（8.5），after 无条件出栈（含异常路径） */
     private fun largeTask(method: Method): Boolean = hooks.install(method, before = { param ->

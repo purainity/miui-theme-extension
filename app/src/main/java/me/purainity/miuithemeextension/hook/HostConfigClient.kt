@@ -9,6 +9,8 @@ import java.util.concurrent.CopyOnWriteArrayList
 
 /** 宿主进程内的配置客户端（8.6）：经 ContentProvider 拉取快照，注册观察者接管后续变更通知 */
 class HostConfigClient(private val host: String) {
+    val log = HookLog.forHost(host)
+    private val logState = ConfigLogState(host == "android")
     @Volatile var config = ModuleConfig()
         private set
     @Volatile var context: Context? = null
@@ -23,14 +25,14 @@ class HostConfigClient(private val host: String) {
     val onAttached = CopyOnWriteArrayList<(Context) -> Unit>()
     val listeners = CopyOnWriteArrayList<(ModuleConfig) -> Unit>()
     private val observer by lazy { object : ContentObserver(handler) {
-        override fun onChange(selfChange: Boolean) { refresh() }
+        override fun onChange(selfChange: Boolean) { refresh(ready = true) }
     } }
     /** 记录宿主上下文并确保配置被拉取：eager 同步执行，否则投递到配置线程 */
     @Synchronized fun connect(value: Context, eager: Boolean = false) {
         if (context == null) {
             context = value.applicationContext ?: value
             onAttached.forEach { callback ->
-                try { callback(requireNotNull(context)) } catch (e: Exception) { HookLog.error("host startup", e) }
+                try { callback(requireNotNull(context)) } catch (e: Exception) { log.error("host_startup", "attach", e) }
             }
         }
         // 配置从未成功读取时在边界调用处重试拉取
@@ -38,14 +40,14 @@ class HostConfigClient(private val host: String) {
         // 其余入口保持异步，不拖慢宿主启动
         // 成功读取后由 ContentObserver 接管变更通知，不再重复拉取
         if (loaded && !configError) return
-        if (eager) refresh() else handler.post(::refresh)
+        if (eager) refresh(ready = true) else handler.post { refresh(ready = host != "android") }
     }
     /** 宿主回到前台或即将进入详情时拉取一次，补偿后台阶段被 MIUI 延迟的观察者回调（8.6） */
-    fun refreshAtForegroundBoundary() = refresh()
+    fun refreshAtForegroundBoundary() = refresh(ready = true)
 
     /** 拉取配置快照：失败回退默认配置并保持全关（fail-closed，8.6）；仅在首次加载或配置变化时通知监听 */
     @Synchronized
-    private fun refresh() {
+    private fun refresh(ready: Boolean) {
         val resolver = context?.contentResolver ?: return
         val previous = config
         try {
@@ -62,14 +64,26 @@ class HostConfigClient(private val host: String) {
             } ?: error("Settings unavailable")
             config = snapshot
             configError = false
+            when (logState.success()) {
+                ConfigLogState.Event.LOADED -> log.info("Config loaded: revision=${snapshot.version}")
+                ConfigLogState.Event.RECOVERED -> log.info("Config recovered: revision=${snapshot.version}")
+                else -> Unit
+            }
         } catch (e: Exception) {
-            // 读取失败按全关配置处理（master 默认关闭）且只记一次日志（8.6）
+            // 读取失败保持全关，仅在失败状态变化时报告并继续重试
             config = ModuleConfig()
-            if (!configError) HookLog.error("config/$host", e)
+            when (logState.failure(ready || e is SecurityException)) {
+                ConfigLogState.Event.EARLY_FAILURE -> log.info("Config unavailable on early startup attempt: type=${e.javaClass.name} action=retry")
+                ConfigLogState.Event.FAILURE -> {
+                    log.warn("Config unavailable: type=${e.javaClass.name} action=fail_closed")
+                    log.error("config", "refresh", e)
+                }
+                else -> Unit
+            }
             configError = true
         }
         if (!loaded || previous != config) listeners.forEach { listener ->
-            try { listener(config) } catch (e: Exception) { HookLog.error("config listener", e) }
+            try { listener(config) } catch (e: Exception) { log.error("config_listener", "notify", e) }
         }
         loaded = true
     }
