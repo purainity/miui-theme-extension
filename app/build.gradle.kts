@@ -9,6 +9,20 @@ val releaseKeyPassword = providers.gradleProperty("ANDROID_RELEASE_KEY_PASSWORD"
 
 val releaseSigningAvailable = releaseStoreFile?.isFile == true && !releaseStorePassword.isNullOrBlank() && !releaseKeyAlias.isNullOrBlank() && !releaseKeyPassword.isNullOrBlank()
 
+// 构建开始时输出签名环境变量状态，未设置时按请求的变体只提示对应一句
+val requestedTasks = gradle.startParameter.taskNames
+val wantsDebug = requestedTasks.any { it.contains("debug", ignoreCase = true) }
+val wantsRelease = requestedTasks.any { it.contains("release", ignoreCase = true) }
+if (releaseSigningAvailable) {
+    logger.lifecycle("Signing environment variables are set, APKs will be signed")
+} else if (wantsDebug && !wantsRelease) {
+    logger.lifecycle("Signing environment variables are not set, debug builds will use the default debug signing")
+} else if (wantsRelease && !wantsDebug) {
+    logger.lifecycle("Signing environment variables are not set, release builds will be unsigned")
+} else {
+    logger.lifecycle("Signing environment variables are not set, debug builds will use the default debug signing and release builds will be unsigned")
+}
+
 android {
     signingConfigs {
         if (releaseSigningAvailable) {
@@ -29,7 +43,7 @@ android {
 
     defaultConfig {
         applicationId = "me.purainity.miuithemeextension"
-        minSdk = 24
+        minSdk = 28
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
@@ -44,7 +58,6 @@ android {
             }
             optimization {
                 enable = true
-                packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
             }
         }
         debug {
@@ -67,7 +80,6 @@ dependencies {
     compileOnly(libs.xposed.api)
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.appcompat)
-    implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.core.ktx)
     implementation(libs.material)
     testImplementation(libs.junit)
