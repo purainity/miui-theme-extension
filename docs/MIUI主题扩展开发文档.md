@@ -72,6 +72,7 @@
 
 ### 2.4 Release 构建与优化
 
+- 项目配置与同步阶段不输出签名提示；APK 的 Debug / Release 打包任务分别触发对应变体的签名提示任务
 - Release 通过 `optimization.enable = true` 启用 R8 代码与资源优化，不限制 `packageScope`，优化范围覆盖整个应用及其依赖；默认 Android 平台保留规则与依赖提供的规则仍由构建工具合并
 - 应用自定义规则放在 `app/src/main/keepRules/rules.keep`，适用于包含 main 源集且启用 R8 的变体；其中 `XposedEntry` 由 `xposed_init` 按类名加载并实例化，框架通过接口回调 `handleLoadPackage`；`ModuleStatus` 的 `markActive` 和 `reportXposedApi` 由模块入口经应用 classloader 按名反射调用，须保留入口类及其无参构造方法和回调方法，以及状态类和上述两个静态方法，无须保留两个类的所有成员
 - 参照图标项目此前遇到的 release 启动 `IllegalAccessError`，暂时保留 `kotlin.**` 与 `kotlinx.**` 存活类的名称作为兼容防护；本项目尚未证实存在同一问题，未使用的类仍可被移除。待经过本项目完整的 release 实机验证后，再评估收窄或移除这两条规则
@@ -226,9 +227,10 @@
 
 配置界面底部独立卡片提供“关于”入口（info 图标 + chevron）。关于页（`AboutActivity`，顶栏带返回箭头）自上而下：
 
-- **页头卡**：应用图标 + 应用名 + 版本号（`版本 {versionName}（{longVersionCode}）`）
+- **页头卡**：应用图标 + 应用名 + 版本号（`版本 {versionName}（{longVersionCode}）`），正方形图标高度随名称和版本文字整体高度变化
 - **项目信息卡**：本项目 GitHub（code 图标）与作者（person 图标），行点击打开对应链接
 - **致谢卡**：对本模块设计有直接参考意义的既有项目——Miui 主题破解（yuk、YuKongA、linqiqi）、PersonalizeHyperTheme / FuckMiuiThemeManager（tangjin）、MIUI 扩展（com.miui.android.t）
+- 致谢与开源许可的分组标题距离上一张卡片 20dp
 - **开源许可卡**：以项目为单位列出直接依赖、传递依赖与随应用分发的资源（Material Symbols、AndroidX、View Binding、Material Components、Kotlin、kotlinx.coroutines、kotlinx.serialization、JetBrains Annotations、Guava、Error Prone、JSpecify、Xposed API），每项三行——项目名 / 作者 · 协议 / 项目主页链接（一律主页根地址，不带版本路径），整行点击打开链接；行内图标为官方 Material Symbols Outlined，受 `MaterialSymbolsIntegrityTest` 校验
 
 其他约定：文案统一使用“主题壁纸 / 智能助理 / 系统桌面 / MIUI 版本”称谓；字符串末尾不加句号；激活状态图标的无障碍描述与当前激活文案保持同步。

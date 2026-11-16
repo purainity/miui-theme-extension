@@ -9,18 +9,19 @@ val releaseKeyPassword = providers.gradleProperty("ANDROID_RELEASE_KEY_PASSWORD"
 
 val releaseSigningAvailable = releaseStoreFile?.isFile == true && !releaseStorePassword.isNullOrBlank() && !releaseKeyAlias.isNullOrBlank() && !releaseKeyPassword.isNullOrBlank()
 
-// 构建开始时输出签名环境变量状态，未设置时按请求的变体只提示对应一句
-val requestedTasks = gradle.startParameter.taskNames
-val wantsDebug = requestedTasks.any { it.contains("debug", ignoreCase = true) }
-val wantsRelease = requestedTasks.any { it.contains("release", ignoreCase = true) }
-if (releaseSigningAvailable) {
-    logger.lifecycle("Signing environment variables are set, APKs will be signed")
-} else if (wantsDebug && !wantsRelease) {
-    logger.lifecycle("Signing environment variables are not set, debug builds will use the default debug signing")
-} else if (wantsRelease && !wantsDebug) {
-    logger.lifecycle("Signing environment variables are not set, release builds will be unsigned")
-} else {
-    logger.lifecycle("Signing environment variables are not set, debug builds will use the default debug signing and release builds will be unsigned")
+// 仅在对应变体的 APK 打包任务进入任务图时输出签名状态
+listOf("Debug", "Release").forEach { variant ->
+    val message = when {
+        releaseSigningAvailable -> "Signing properties are configured, ${variant.lowercase()} builds will use the release signing"
+        variant == "Debug" -> "Signing properties are not fully configured, debug builds will use the default debug signing"
+        else -> "Signing properties are not fully configured, release builds will be unsigned"
+    }
+    val reportSigning = tasks.register("report${variant}Signing") {
+        doLast { logger.lifecycle(message) }
+    }
+    tasks.matching { it.name == "package$variant" }.configureEach {
+        dependsOn(reportSigning)
+    }
 }
 
 android {
@@ -80,6 +81,7 @@ dependencies {
     compileOnly(libs.xposed.api)
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.core.ktx)
     implementation(libs.material)
     testImplementation(libs.junit)

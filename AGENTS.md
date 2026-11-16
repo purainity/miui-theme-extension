@@ -59,8 +59,8 @@ miui-theme-extension/
 │   │   │       └── OpenSourceProjects.kt             # 开源项目清单
 │   │   ├── assets/                                   # xposed_init，声明 Xposed 入口类名
 │   │   └── res/                                      # XML 布局、Material Symbols 风格矢量图标、M3 主题
-│   ├── test/                                         # 7 个单元测试类（JUnit 4）
-│   └── androidTest/                                  # 2 个 Instrumented 测试类（Espresso）
+│   ├── test/                                         # 11 个单元测试类（JUnit 4）
+│   └── androidTest/                                  # 3 个 Instrumented 测试类（Espresso）
 └── docs/
     ├── MIUI主题扩展开发文档.md                       # 权威实现依据
     └── 已有的主题破解和MIUI扩展模块对比分析报告.md   # 只读背景研究
